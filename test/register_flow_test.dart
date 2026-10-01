@@ -1,0 +1,248 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:cookconnect/services/api_service.dart';
+import 'package:cookconnect/services/auth_service.dart';
+import 'package:cookconnect/services/token_storage_service.dart';
+import 'package:cookconnect/screens/register/register_email_screen.dart';
+import 'package:cookconnect/screens/register/register_otp_screen.dart';
+import 'package:cookconnect/screens/register/register_password_screen.dart';
+
+void main() {
+  group('RegisterEmailScreen Tests', () {
+    testWidgets('Validates empty and invalid email format', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: RegisterEmailScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify UI elements
+      expect(find.text('Đăng ký tài khoản'), findsOneWidget);
+      expect(find.text('Nhập địa chỉ Email'), findsOneWidget);
+      expect(find.text('Nhận mã OTP'), findsOneWidget);
+
+      // Tap submit with empty email
+      await tester.tap(find.text('Nhận mã OTP'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Vui lòng nhập địa chỉ email'), findsOneWidget);
+
+      // Enter invalid email
+      await tester.enterText(find.byType(TextFormField), 'invalid-email-format');
+      await tester.tap(find.text('Nhận mã OTP'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Định dạng email không hợp lệ (ví dụ: name@example.com)'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Submits valid email and navigates to RegisterOtpScreen', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final mockClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/auth/send-otp') {
+          return http.Response(
+            '{"success":true,"statusCode":200,"message":"OTP_SENT_SUCCESS"}',
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final mockApiService = ApiService(client: mockClient);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RegisterEmailScreen(apiService: mockApiService),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Enter valid email
+      await tester.enterText(find.byType(TextFormField), 'chef.linh@example.com');
+      await tester.pumpAndSettle();
+
+      // Tap submit
+      await tester.tap(find.text('Nhận mã OTP'));
+      await tester.pump(); // Start request
+      await tester.pumpAndSettle(); // Settle navigation
+
+      // Verify navigated to RegisterOtpScreen
+      expect(find.byType(RegisterOtpScreen), findsOneWidget);
+      expect(find.text('chef.linh@example.com'), findsOneWidget);
+      expect(find.text('Nhập mã xác thực'), findsOneWidget);
+      expect(find.text('Xác thực OTP'), findsWidgets);
+    });
+  });
+
+  group('RegisterOtpScreen Tests', () {
+    testWidgets('Renders 6-digit OTP fields and navigates to RegisterPasswordScreen', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      bool otpVerifiedCalled = false;
+
+      final mockClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/auth/verify-otp') {
+          return http.Response(
+            '''{
+              "success": true,
+              "statusCode": 200,
+              "message": "OTP_VERIFIED",
+              "data": {
+                "verificationToken": "mock-verify-token-xyz"
+              }
+            }''',
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final mockApiService = ApiService(client: mockClient);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RegisterOtpScreen(
+            email: 'test@example.com',
+            apiService: mockApiService,
+            onOtpVerified: (email, token) {
+              otpVerifiedCalled = true;
+              expect(email, 'test@example.com');
+              expect(token, 'mock-verify-token-xyz');
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('test@example.com'), findsOneWidget);
+      expect(find.text('Đổi email'), findsOneWidget);
+
+      // Find 6 digit input fields
+      final textFields = find.byType(TextFormField);
+      expect(textFields, findsNWidgets(6));
+
+      // Enter 6 digits
+      for (int i = 0; i < 6; i++) {
+        await tester.enterText(textFields.at(i), '${i + 1}');
+        await tester.pump();
+      }
+
+      // Scroll and tap confirm button
+      final confirmBtn = find.widgetWithText(ElevatedButton, 'Xác nhận OTP');
+      expect(confirmBtn, findsOneWidget);
+      await tester.ensureVisible(confirmBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(confirmBtn);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Verify callback called
+      expect(otpVerifiedCalled, isTrue);
+
+      // Verify navigated to RegisterPasswordScreen
+      expect(find.byType(RegisterPasswordScreen), findsOneWidget);
+      expect(find.text('Thiết lập mật khẩu'), findsOneWidget);
+      expect(find.text('Mật khẩu'), findsWidgets);
+      expect(find.text('Xác nhận mật khẩu'), findsOneWidget);
+    });
+  });
+
+  group('RegisterPasswordScreen Tests', () {
+    testWidgets('Validates password match and completes registration', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      AuthService.instance.configure(storage: InMemoryTokenStorageService());
+
+      final mockClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/auth/register') {
+          return http.Response(
+            '''{
+              "success": true,
+              "statusCode": 201,
+              "message": "AUTH.REGISTER_SUCCESS",
+              "data": {
+                "user": {
+                  "id": "new-user-id",
+                  "email": "chef.linh@example.com",
+                  "fullName": "chef.linh",
+                  "roles": ["USER"],
+                  "status": "ACTIVE"
+                },
+                "tokens": {
+                  "accessToken": "new-access-jwt",
+                  "refreshToken": "new-refresh-jwt",
+                  "tokenType": "Bearer",
+                  "expiresIn": 900
+                }
+              }
+            }''',
+            201,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final mockApiService = ApiService(client: mockClient);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RegisterPasswordScreen(
+            email: 'chef.linh@example.com',
+            verificationToken: 'valid-vtok-123',
+            apiService: mockApiService,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Enter mismatched passwords
+      final textFields = find.byType(TextFormField);
+      expect(textFields, findsNWidgets(2));
+
+      await tester.enterText(textFields.at(0), 'password123');
+      await tester.enterText(textFields.at(1), 'password999');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Hoàn tất đăng ký'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mật khẩu xác nhận không trùng khớp'), findsOneWidget);
+
+      // Fix confirm password to match
+      await tester.enterText(textFields.at(1), 'password123');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Hoàn tất đăng ký'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Verify AuthService session is updated
+      expect(AuthService.instance.isLoggedIn, isTrue);
+      expect(AuthService.instance.currentUser?.email, 'chef.linh@example.com');
+      expect(AuthService.instance.tokens?.accessToken, 'new-access-jwt');
+    });
+  });
+}

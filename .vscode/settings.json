@@ -1,0 +1,50 @@
+{
+   "files.exclude": {
+      "**/.git": true,
+      "**/.svn": true,
+      "**/.hg": true,
+      "**/CVS": true,
+      "**/.DS_Store": true,
+      "**/Thumbs.db": true,
+      "**/node_modules": true,
+      "**/.idea": true,
+      "**/.dart_tool": true,
+      "**/dist": true,
+      "**/.pnpm-store": true,
+      "**/coverage": true,
+      "**/.omni": true,
+      "**/.codegraph": true
+   },
+   "search.exclude": {
+      "**/node_modules": true,
+      "**/.idea": true,
+      "**/.dart_tool": true,
+      "**/dist": true,
+      "**/.pnpm-store": true,
+      "**/coverage": true,
+      "**/.omni": true,
+      "**/pnpm-lock.yaml": true,
+      "**/.codegraph": true
+   },
+   "files.watcherExclude": {
+      "**/.git/objects/**": true,
+      "**/.git/subtree-cache/**": true,
+      "**/node_modules/**": true,
+      "**/.idea": true,
+      "**/.dart_tool": true,
+      "**/dist/**": true,
+      "**/.pnpm-store/**": true,
+      "**/coverage/**": true,
+      "**/.omni/**": true,
+      "**/.codegraph/**": true
+   },
+   "editor.defaultFormatter": "esbenp.prettier-vscode",
+   "editor.formatOnSave": true,
+   "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+   },
+   "[json]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+   },
+   "cSpell.words": ["cookconnect"]
+}
