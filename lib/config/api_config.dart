@@ -21,11 +21,14 @@ class ApiConfig {
   static String get apiBaseUrl => '$baseUrl/api/$apiVersion';
   static String get healthUrl => '$baseUrl/api/$apiVersion/health';
   static String get docsUrl => '$baseUrl/docs';
-  static String get sendOtpUrl => '$baseUrl/api/$apiVersion/auth/send-otp';
-  static String get verifyOtpUrl => '$baseUrl/api/$apiVersion/auth/verify-otp';
+  static String get checkUsernameUrl => '$baseUrl/api/$apiVersion/users/check-username';
+  static String get avatarUrl => '$baseUrl/api/$apiVersion/users/me/avatar';
+  static String get sendOtpUrl => '$baseUrl/api/$apiVersion/auth/register/send-otp';
+  static String get verifyOtpUrl => '$baseUrl/api/$apiVersion/auth/register/verify-otp';
   static String get registerUrl => '$baseUrl/api/$apiVersion/auth/register';
   static String get loginUrl => '$baseUrl/api/$apiVersion/auth/login';
   static String get logoutUrl => '$baseUrl/api/$apiVersion/auth/logout';
   static String get refreshUrl => '$baseUrl/api/$apiVersion/auth/refresh';
   static String get meUrl => '$baseUrl/api/$apiVersion/auth/me';
+  static String get userMeUrl => '$baseUrl/api/$apiVersion/users/me';
 }

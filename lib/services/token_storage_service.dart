@@ -18,6 +18,7 @@ class SecureTokenStorageService implements TokenStorageService {
   static const String _keyRefreshToken = 'cc_refresh_token';
   static const String _keyTokenType = 'cc_token_type';
   static const String _keyExpiresIn = 'cc_expires_in';
+  static const String _keyCreatedAt = 'cc_created_at';
   static const String _keyUserData = 'cc_user_data';
 
   SecureTokenStorageService({FlutterSecureStorage? storage})
@@ -39,6 +40,10 @@ class SecureTokenStorageService implements TokenStorageService {
       await _storage.write(
         key: _keyExpiresIn,
         value: tokens.expiresIn.toString(),
+      );
+      await _storage.write(
+        key: _keyCreatedAt,
+        value: tokens.createdAt.millisecondsSinceEpoch.toString(),
       );
     } catch (_) {
       // Graceful fallback
@@ -62,11 +67,18 @@ class SecureTokenStorageService implements TokenStorageService {
       final expiresInStr = await _storage.read(key: _keyExpiresIn);
       final expiresIn = int.tryParse(expiresInStr ?? '') ?? 900;
 
+      final createdAtStr = await _storage.read(key: _keyCreatedAt);
+      final createdAtMillis = int.tryParse(createdAtStr ?? '');
+      final createdAt = createdAtMillis != null
+          ? DateTime.fromMillisecondsSinceEpoch(createdAtMillis)
+          : null;
+
       return AuthTokens(
         accessToken: accessToken,
         refreshToken: refreshToken,
         tokenType: tokenType,
         expiresIn: expiresIn,
+        createdAt: createdAt,
       );
     } catch (_) {
       return null;
@@ -104,6 +116,7 @@ class SecureTokenStorageService implements TokenStorageService {
       await _storage.delete(key: _keyRefreshToken);
       await _storage.delete(key: _keyTokenType);
       await _storage.delete(key: _keyExpiresIn);
+      await _storage.delete(key: _keyCreatedAt);
       await _storage.delete(key: _keyUserData);
     } catch (_) {
       // Graceful fallback

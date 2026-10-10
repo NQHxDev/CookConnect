@@ -33,7 +33,7 @@ void main() {
       // Verify dialog title and fields
       expect(find.text('Hoàn tất hồ sơ Chef'), findsOneWidget);
       expect(find.text('Họ và tên / Tên hiển thị'), findsOneWidget);
-      expect(find.text('Tên người dùng (Username)'), findsOneWidget);
+      expect(find.text('Tên người dùng'), findsOneWidget);
       expect(find.text('Giới tính'), findsOneWidget);
       expect(find.text('Ngày sinh'), findsOneWidget);
       expect(find.text('Tiểu sử giới thiệu (Bio)'), findsOneWidget);

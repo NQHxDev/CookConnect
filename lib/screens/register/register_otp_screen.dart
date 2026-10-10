@@ -303,10 +303,7 @@ class _RegisterOtpScreenState extends State<RegisterOtpScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Step Indicator Header (Step 2 Active)
-                _buildStepIndicator(primaryColor),
 
-                const SizedBox(height: 28),
 
                 // Header title
                 const Text(
@@ -478,19 +475,12 @@ class _RegisterOtpScreenState extends State<RegisterOtpScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Xác nhận OTP',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Icon(Iconsax.arrow_right_3, size: 18),
-                            ],
+                        : const Text(
+                            'Xác nhận',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
                 ),
@@ -574,101 +564,5 @@ class _RegisterOtpScreenState extends State<RegisterOtpScreen> {
     );
   }
 
-  Widget _buildStepIndicator(Color primaryColor) {
-    return Row(
-      children: [
-        // Step 1 Completed
-        _buildStepItem(
-          stepNumber: '1',
-          label: 'Email',
-          isCompleted: true,
-          isActive: false,
-          primaryColor: primaryColor,
-        ),
-        const SizedBox(width: 8),
-        // Step 2 Active
-        _buildStepItem(
-          stepNumber: '2',
-          label: 'OTP',
-          isCompleted: false,
-          isActive: true,
-          primaryColor: primaryColor,
-        ),
-        const SizedBox(width: 8),
-        // Step 3 Inactive
-        _buildStepItem(
-          stepNumber: '3',
-          label: 'Mật khẩu',
-          isCompleted: false,
-          isActive: false,
-          primaryColor: primaryColor,
-        ),
-      ],
-    );
-  }
 
-  Widget _buildStepItem({
-    required String stepNumber,
-    required String label,
-    required bool isCompleted,
-    required bool isActive,
-    required Color primaryColor,
-  }) {
-    final color = isCompleted
-        ? Colors.green.shade600
-        : (isActive ? primaryColor : Colors.grey[400]!);
-
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: isCompleted
-                      ? const Icon(Icons.check, color: Colors.white, size: 12)
-                      : Text(
-                          stepNumber,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: (isActive || isCompleted) ? FontWeight.bold : FontWeight.normal,
-                  color: isCompleted
-                      ? Colors.green.shade700
-                      : (isActive ? primaryColor : Colors.grey[500]),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Container(
-            height: 3,
-            decoration: BoxDecoration(
-              color: isCompleted
-                  ? Colors.green.shade600
-                  : (isActive ? primaryColor : Colors.grey[200]),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

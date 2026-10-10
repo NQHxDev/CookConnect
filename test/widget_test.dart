@@ -90,15 +90,42 @@ void main() {
     expect(find.byIcon(Iconsax.edit_2), findsOneWidget);
     expect(find.text('Thêm tiểu sử'), findsOneWidget);
 
-    // Tap Edit Pen icon in AppBar -> opens EditProfileScreen
+    // Tap Edit Pen icon in AppBar -> opens EditProfileScreen ("Sửa thông tin")
     await tester.tap(find.byIcon(Iconsax.edit_2));
     await tester.pumpAndSettle();
 
-    expect(find.text('Thiết lập thông tin cá nhân'), findsOneWidget);
+    expect(find.text('Sửa thông tin'), findsOneWidget);
     expect(find.text('Thông tin cơ bản'), findsOneWidget);
-    expect(find.text('Lưu thay đổi'), findsOneWidget);
+    expect(find.text('Thông tin chi tiết & Liên hệ'), findsOneWidget);
+
+    // Tap "Tên" item -> opens EditNameScreen
+    await tester.tap(find.text('Tên'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tên hiển thị'), findsOneWidget);
+
+    // Go back to EditProfileScreen
+    await tester.tap(find.byIcon(Iconsax.arrow_left));
+    await tester.pumpAndSettle();
+
+    // Tap "Tên người dùng" item -> opens EditUsernameScreen
+    await tester.tap(find.text('Tên người dùng'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tên người dùng'), findsAtLeastNWidgets(1));
+
+    // Go back to EditProfileScreen
+    await tester.tap(find.byIcon(Iconsax.arrow_left));
+    await tester.pumpAndSettle();
+
+    // Tap "Giới tính" item -> opens EditContactInfoScreen
+    await tester.tap(find.text('Giới tính'));
+    await tester.pumpAndSettle();
+    expect(find.text('Thông tin cá nhân & Liên hệ'), findsOneWidget);
 
     // Go back
+    await tester.tap(find.byIcon(Iconsax.arrow_left));
+    await tester.pumpAndSettle();
+
+    // Go back to ProfileScreen
     await tester.tap(find.byIcon(Iconsax.arrow_left));
     await tester.pumpAndSettle();
 

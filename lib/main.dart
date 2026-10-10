@@ -14,6 +14,8 @@ class CookConnect extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: AuthService.navigatorKey,
+      scaffoldMessengerKey: AuthService.scaffoldMessengerKey,
       title: 'CookConnect',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

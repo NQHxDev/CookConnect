@@ -407,6 +407,9 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet>
                           ),
                           child: TabBar(
                             controller: _tabController,
+                            splashFactory: NoSplash.splashFactory,
+                            overlayColor: WidgetStateProperty.all(Colors.transparent),
+                            enableFeedback: false,
                             indicatorSize: TabBarIndicatorSize.tab,
                             indicator: BoxDecoration(
                               color: primaryColor,

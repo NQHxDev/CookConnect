@@ -161,20 +161,6 @@ class _ProfileSetupDialogState extends State<ProfileSetupDialog> {
 
     Navigator.pop(context);
     widget.onComplete?.call();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            Icon(Iconsax.tick_circle5, color: Colors.white),
-            SizedBox(width: 8),
-            Expanded(child: Text('Đã cập nhật hồ sơ cá nhân thành công!')),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   @override
@@ -276,7 +262,7 @@ class _ProfileSetupDialogState extends State<ProfileSetupDialog> {
               const SizedBox(height: 14),
 
               // Username Field
-              _buildFieldLabel('Tên người dùng (Username)'),
+              _buildFieldLabel('Tên người dùng'),
               TextFormField(
                 controller: _usernameController,
                 decoration: _buildInputDecoration(

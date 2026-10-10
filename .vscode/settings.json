@@ -46,5 +46,6 @@
    "[json]": {
       "editor.defaultFormatter": "esbenp.prettier-vscode"
    },
-   "cSpell.words": ["cookconnect"]
+   "cSpell.words": ["cookconnect"],
+   "java.compile.nullAnalysis.mode": "automatic"
 }

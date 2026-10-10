@@ -12,6 +12,7 @@ class EditBioScreen extends StatefulWidget {
 
 class _EditBioScreenState extends State<EditBioScreen> {
   late TextEditingController _bioController;
+  late String _initialBio;
   bool _isLoading = false;
   final int _maxLength = 150;
 
@@ -19,7 +20,8 @@ class _EditBioScreenState extends State<EditBioScreen> {
   void initState() {
     super.initState();
     final user = AuthService.instance.currentUser;
-    _bioController = TextEditingController(text: user?.bio ?? '');
+    _initialBio = user?.bio ?? '';
+    _bioController = TextEditingController(text: _initialBio);
     _bioController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -31,7 +33,11 @@ class _EditBioScreenState extends State<EditBioScreen> {
     super.dispose();
   }
 
+  bool get _hasChanged => _bioController.text.trim() != _initialBio.trim();
+
   Future<void> _saveBio() async {
+    if (!_hasChanged) return;
+
     final bioText = _bioController.text.trim();
     setState(() => _isLoading = true);
 
@@ -40,7 +46,11 @@ class _EditBioScreenState extends State<EditBioScreen> {
 
     if (token != null && token.isNotEmpty) {
       final apiService = ApiService();
-      await apiService.updateUserProfile(accessToken: token, userId: userId, bio: bioText);
+      await apiService.updateUserProfile(
+        accessToken: token,
+        userId: userId,
+        bio: bioText,
+      );
     }
 
     // Update local session
@@ -57,7 +67,11 @@ class _EditBioScreenState extends State<EditBioScreen> {
           children: [
             const Icon(Iconsax.tick_circle5, color: Colors.white, size: 20),
             const SizedBox(width: 8),
-            Text(bioText.isEmpty ? 'Đã xoá tiểu sử cá nhân' : 'Đã cập nhật tiểu sử thành công!'),
+            Text(
+              bioText.isEmpty
+                  ? 'Đã xoá tiểu sử cá nhân'
+                  : 'Đã cập nhật tiểu sử thành công!',
+            ),
           ],
         ),
         backgroundColor: Colors.green[700],
@@ -78,24 +92,42 @@ class _EditBioScreenState extends State<EditBioScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 1,
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Iconsax.arrow_left, color: Colors.black87),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Tiểu sử cá nhân',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.black87,
+          ),
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: TextButton(
-              onPressed: _isLoading ? null : _saveBio,
+              onPressed: (_isLoading || !_hasChanged) ? null : _saveBio,
               style: TextButton.styleFrom(
                 foregroundColor: primaryColor,
-                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                disabledForegroundColor: Colors.grey[400],
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
               ),
-              child: _isLoading ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor)) : const Text('Lưu'),
+              child: _isLoading
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: primaryColor,
+                      ),
+                    )
+                  : const Text('Lưu'),
             ),
           ),
         ],
@@ -108,12 +140,20 @@ class _EditBioScreenState extends State<EditBioScreen> {
           children: [
             const Text(
               'Giới thiệu bản thân',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               'Chia sẻ về niềm đam mê nấu nướng, các món ăn bạn thích hoặc phong cách ẩm thực đặc trưng của bạn.',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.4),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 16),
             Container(
@@ -121,7 +161,13 @@ class _EditBioScreenState extends State<EditBioScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 2))],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -133,7 +179,11 @@ class _EditBioScreenState extends State<EditBioScreen> {
                     autofocus: true,
                     decoration: InputDecoration(
                       hintText: 'Ví dụ: Tài khoản của tôi làm về chủ đề...',
-                      hintStyle: TextStyle(fontSize: 13.5, color: Colors.grey[400], height: 1.4),
+                      hintStyle: TextStyle(
+                        fontSize: 13.5,
+                        color: Colors.grey[400],
+                        height: 1.4,
+                      ),
                       border: InputBorder.none,
                       counterText: '',
                     ),
@@ -149,9 +199,19 @@ class _EditBioScreenState extends State<EditBioScreen> {
                           },
                           child: Row(
                             children: [
-                              Icon(Iconsax.trash, size: 14, color: Colors.grey[500]),
+                              Icon(
+                                Iconsax.trash,
+                                size: 14,
+                                color: Colors.grey[500],
+                              ),
                               const SizedBox(width: 4),
-                              Text('Xoá nội dung', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                              Text(
+                                'Xoá nội dung',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
                             ],
                           ),
                         )
@@ -159,7 +219,13 @@ class _EditBioScreenState extends State<EditBioScreen> {
                         const SizedBox.shrink(),
                       Text(
                         '$currentLength/$_maxLength',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: currentLength >= _maxLength ? Colors.red : Colors.grey[500]),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: currentLength >= _maxLength
+                              ? Colors.red
+                              : Colors.grey[500],
+                        ),
                       ),
                     ],
                   ),
@@ -170,7 +236,11 @@ class _EditBioScreenState extends State<EditBioScreen> {
             // Quick ideas suggestions
             const Text(
               'Gợi ý phong cách',
-              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -183,23 +253,6 @@ class _EditBioScreenState extends State<EditBioScreen> {
                 _buildBioSuggestion('⚡ Bữa ăn nhanh 15 phút'),
                 _buildBioSuggestion('🍲 Bếp gia đình ấm cúng'),
               ],
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _saveBio,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: _isLoading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Lưu tiểu sử', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              ),
             ),
           ],
         ),
@@ -227,7 +280,11 @@ class _EditBioScreenState extends State<EditBioScreen> {
         ),
         child: Text(
           text,
-          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Colors.black87),
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
         ),
       ),
     );

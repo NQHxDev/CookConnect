@@ -34,6 +34,9 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
+  String? _phoneAuthError;
+  String? _emailAuthError;
+
   late final ApiService _apiService;
 
   // Phone Login State & Focus Nodes
@@ -68,6 +71,26 @@ class _LoginScreenState extends State<LoginScreen>
     _isSignUp = widget.initialSignUp;
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabAnimation);
+
+    _emailController.addListener(_onEmailInputChanged);
+    _emailPasswordController.addListener(_onEmailInputChanged);
+    _confirmPasswordController.addListener(_onEmailInputChanged);
+
+    _phoneController.addListener(_onPhoneInputChanged);
+    _phonePasswordController.addListener(_onPhoneInputChanged);
+    _otpController.addListener(_onPhoneInputChanged);
+  }
+
+  void _onEmailInputChanged() {
+    if (_emailAuthError != null) {
+      setState(() => _emailAuthError = null);
+    }
+  }
+
+  void _onPhoneInputChanged() {
+    if (_phoneAuthError != null) {
+      setState(() => _phoneAuthError = null);
+    }
   }
 
   void _unfocusAll() {
@@ -94,7 +117,10 @@ class _LoginScreenState extends State<LoginScreen>
     // Unfocus all nodes to detach any active keyboard
     _unfocusAll();
 
-    setState(() {});
+    setState(() {
+      _phoneAuthError = null;
+      _emailAuthError = null;
+    });
 
     if (newIndex == 1) {
       if (hadPhoneFocus) {
@@ -126,6 +152,8 @@ class _LoginScreenState extends State<LoginScreen>
     _unfocusAll();
     setState(() {
       _isSignUp = !_isSignUp;
+      _phoneAuthError = null;
+      _emailAuthError = null;
     });
   }
 
@@ -202,7 +230,10 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _phoneAuthError = null;
+      _isLoading = true;
+    });
 
     if (_loginWithOtp) {
       // Simulated OTP flow
@@ -287,35 +318,21 @@ class _LoginScreenState extends State<LoginScreen>
           });
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Iconsax.warning_2, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    result.error ??
-                        (_isSignUp ? 'Đăng ký thất bại' : 'Đăng nhập thất bại'),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red[700],
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _phonePasswordController.clear();
+        setState(() {
+          _phoneAuthError = result.error ??
+              (_isSignUp
+                  ? 'Đăng ký không thành công'
+                  : 'Thông tin đăng nhập không chính xác');
+        });
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi kết nối: ${e.toString()}'),
-          backgroundColor: Colors.red[700],
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _phonePasswordController.clear();
+      setState(() {
+        _isLoading = false;
+        _phoneAuthError = 'Lỗi kết nối máy chủ: ${e.toString()}';
+      });
     }
   }
 
@@ -325,7 +342,10 @@ class _LoginScreenState extends State<LoginScreen>
     final email = _emailController.text.trim();
     final password = _emailPasswordController.text;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _emailAuthError = null;
+      _isLoading = true;
+    });
 
     try {
       final AuthResult result;
@@ -389,36 +409,62 @@ class _LoginScreenState extends State<LoginScreen>
           });
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Iconsax.warning_2, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    result.error ??
-                        (_isSignUp ? 'Đăng ký thất bại' : 'Đăng nhập thất bại'),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red[700],
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _emailPasswordController.clear();
+        if (_isSignUp) {
+          _confirmPasswordController.clear();
+        }
+        setState(() {
+          _emailAuthError = result.error ??
+              (_isSignUp
+                  ? 'Đăng ký không thành công'
+                  : 'Email hoặc mật khẩu không chính xác');
+        });
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi kết nối: ${e.toString()}'),
-          backgroundColor: Colors.red[700],
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _emailPasswordController.clear();
+      setState(() {
+        _isLoading = false;
+        _emailAuthError = 'Lỗi kết nối máy chủ: ${e.toString()}';
+      });
     }
+  }
+
+  Widget _buildInlineError(String message) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFCA5A5),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Icon(
+            Iconsax.warning_2,
+            color: Color(0xFFDC2626),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFFDC2626),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showForgotPasswordDialog() {
@@ -512,19 +558,6 @@ class _LoginScreenState extends State<LoginScreen>
             icon: const Icon(Iconsax.arrow_left, color: Colors.black87),
             onPressed: () => Navigator.pop(context),
           ),
-          actions: [
-            TextButton(
-              onPressed: _isSignUp ? _toggleSignUp : _openRegisterScreen,
-              child: Text(
-                _isSignUp ? 'Đăng nhập' : 'Đăng ký',
-                style: TextStyle(
-                  color: primaryColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-          ],
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -564,57 +597,68 @@ class _LoginScreenState extends State<LoginScreen>
                     color: const Color(0xFFF1F3F5),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: TabBar(
-                    controller: _tabController,
-                    onTap: (index) {
-                      _lastTabIndex = index;
-                      _onTabChanged(index);
-                    },
-                    indicator: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      splashColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                      hoverColor: Colors.transparent,
+                    ),
+                    child: TabBar(
+                      controller: _tabController,
+                      onTap: (index) {
+                        _lastTabIndex = index;
+                        _onTabChanged(index);
+                      },
+                      splashFactory: NoSplash.splashFactory,
+                      overlayColor: WidgetStateProperty.all(Colors.transparent),
+                      enableFeedback: false,
+                      dividerColor: Colors.transparent,
+                      indicator: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      labelColor: primaryColor,
+                      unselectedLabelColor: Colors.grey[600],
+                      labelStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                      ),
+                      unselectedLabelStyle: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13.5,
+                      ),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      dividerHeight: 0,
+                      tabs: const [
+                        Tab(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Iconsax.call, size: 16),
+                              SizedBox(width: 6),
+                              Text('Số điện thoại'),
+                            ],
+                          ),
+                        ),
+                        Tab(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Iconsax.sms, size: 16),
+                              SizedBox(width: 6),
+                              Text('Email'),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                    labelColor: primaryColor,
-                    unselectedLabelColor: Colors.grey[600],
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13.5,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13.5,
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerHeight: 0,
-                    tabs: const [
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Iconsax.call, size: 16),
-                            SizedBox(width: 6),
-                            Text('Số điện thoại'),
-                          ],
-                        ),
-                      ),
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Iconsax.sms, size: 16),
-                            SizedBox(width: 6),
-                            Text('Email'),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
                 ),
 
@@ -630,31 +674,46 @@ class _LoginScreenState extends State<LoginScreen>
                   },
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                // Divider "Hoặc đăng nhập với"
+                // Divider Or
                 Row(
                   children: [
-                    Expanded(child: Divider(color: Colors.grey[300])),
+                    Expanded(
+                      child: Divider(
+                        color: Colors.grey.withValues(alpha: 0.3),
+                        thickness: 0.8,
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       child: Text(
                         'Hoặc tiếp tục với',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.grey[500],
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                    Expanded(child: Divider(color: Colors.grey[300])),
+                    Expanded(
+                      child: Divider(
+                        color: Colors.grey.withValues(alpha: 0.3),
+                        thickness: 0.8,
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 18),
 
-                // Quick Social Buttons Row with authentic Google / Apple / Facebook logos
+                const SizedBox(height: 20),
+
+                // Social Login Buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _buildSocialCircle(
-                      customChild: const GoogleLogoWidget(size: 24),
-                      onTap: () => _simulateSocialLogin('Google Chef User'),
+                      customChild: const GoogleLogoWidget(size: 22),
+                      onTap: () => _showSocialUnderDevelopment('Google'),
                     ),
                     const SizedBox(width: 16),
                     _buildSocialCircle(
@@ -663,7 +722,7 @@ class _LoginScreenState extends State<LoginScreen>
                         color: Colors.black,
                         size: 24,
                       ),
-                      onTap: () => _simulateSocialLogin('Apple Chef User'),
+                      onTap: () => _showSocialUnderDevelopment('Apple'),
                     ),
                     const SizedBox(width: 16),
                     _buildSocialCircle(
@@ -672,7 +731,7 @@ class _LoginScreenState extends State<LoginScreen>
                         color: Color(0xFF1877F2),
                         size: 24,
                       ),
-                      onTap: () => _simulateSocialLogin('Facebook Chef User'),
+                      onTap: () => _showSocialUnderDevelopment('Facebook'),
                     ),
                   ],
                 ),
@@ -902,6 +961,7 @@ class _LoginScreenState extends State<LoginScreen>
                     _unfocusAll();
                     setState(() {
                       _loginWithOtp = !_loginWithOtp;
+                      _phoneAuthError = null;
                     });
                   },
                   child: Text(
@@ -938,7 +998,12 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ],
 
-          const SizedBox(height: 20),
+          if (_phoneAuthError != null) ...[
+            const SizedBox(height: 14),
+            _buildInlineError(_phoneAuthError!),
+          ] else ...[
+            const SizedBox(height: 20),
+          ],
 
           // Submit Button
           SizedBox(
@@ -1070,7 +1135,12 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ],
 
-          const SizedBox(height: 20),
+          if (_emailAuthError != null) ...[
+            const SizedBox(height: 14),
+            _buildInlineError(_emailAuthError!),
+          ] else ...[
+            const SizedBox(height: 20),
+          ],
 
           // Submit Button
           SizedBox(
@@ -1209,21 +1279,27 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  void _simulateSocialLogin(String provider) async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    AuthService.instance.setGuestDemo(
-      name: provider,
-      email: 'user@cookconnect.app',
+  void _showSocialUnderDevelopment([String? provider]) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Iconsax.info_circle, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Tính năng đang phát triển',
+                style: TextStyle(fontSize: 13.5),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF333333),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
     );
-
-    if (widget.onLoginSuccess != null) {
-      widget.onLoginSuccess!(provider, 'user@cookconnect.app');
-    }
-
-    Navigator.pop(context);
   }
 }

@@ -25,6 +25,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     AuthService.instance.addListener(_onAuthChanged);
+    if (AuthService.instance.isLoggedIn) {
+      AuthService.instance.fetchUserProfile();
+    }
   }
 
   void _onAuthChanged() {
@@ -70,12 +73,30 @@ class _ProfileScreenState extends State<ProfileScreen>
   int get _videoCount => AuthService.instance.currentUser?.videoCount ?? 0;
   int get _followerCount =>
       AuthService.instance.currentUser?.followerCount ?? 0;
-  int get _followingCount =>
-      AuthService.instance.currentUser?.followingCount ?? 0;
   int get _likeCount => AuthService.instance.currentUser?.likeCount ?? 0;
 
-  void _loginDemoUser() {
-    AuthService.instance.setGuestDemo();
+  void _showSocialUnderDevelopment([String? provider]) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Iconsax.info_circle, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Tính năng đang phát triển',
+                style: TextStyle(fontSize: 13.5),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF333333),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _logout() {
@@ -285,7 +306,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         leading: _isLoggedIn
             ? IconButton(
                 icon: const Icon(Iconsax.edit_2, color: Colors.black87),
-                tooltip: 'Chỉnh sửa thông tin cá nhân',
+                tooltip: 'Sửa thông tin',
                 onPressed: () => _navigateToEditProfileScreen(),
               )
             : null,
@@ -611,9 +632,16 @@ class _ProfileScreenState extends State<ProfileScreen>
     final userBio = user?.bio;
     final hasBio = userBio != null && userBio.trim().isNotEmpty;
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
+    return RefreshIndicator(
+      color: primaryColor,
+      onRefresh: () async {
+        await AuthService.instance.fetchUserProfile();
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        child: Column(
         children: [
           // Header User Profile Card
           Container(
@@ -681,10 +709,31 @@ class _ProfileScreenState extends State<ProfileScreen>
                               ],
                             ],
                           ),
+                          const SizedBox(height: 10),
+                          // Social stats directly below Username (no box, no following)
+                          Row(
+                            children: [
+                              _buildInlineStatItem('$_videoCount', 'Món ăn'),
+                              const SizedBox(width: 22),
+                              _buildInlineStatItem(
+                                _followerCount >= 1000
+                                    ? '${(_followerCount / 1000).toStringAsFixed(1)}K'
+                                    : '$_followerCount',
+                                'Follower',
+                              ),
+                              const SizedBox(width: 22),
+                              _buildInlineStatItem(
+                                _likeCount >= 1000
+                                    ? '${(_likeCount / 1000).toStringAsFixed(1)}K'
+                                    : '$_likeCount',
+                                'Thích',
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 22),
                     // Right Side: Avatar with verified badge
                     Stack(
                       children: [
@@ -694,11 +743,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(color: primaryColor, width: 2.5),
-                            gradient: LinearGradient(
-                              colors: [Colors.orange[300]!, primaryColor],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: primaryColor.withValues(alpha: 0.2),
@@ -707,12 +751,46 @@ class _ProfileScreenState extends State<ProfileScreen>
                               ),
                             ],
                           ),
-                          child: const Center(
-                            child: Icon(
-                              Iconsax.user,
-                              size: 40,
-                              color: Colors.white,
-                            ),
+                          child: ClipOval(
+                            child: (user?.avatar != null && user!.avatar!.isNotEmpty)
+                                ? Image.network(
+                                    user.avatar!,
+                                    width: 76,
+                                    height: 76,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [Colors.orange[300]!, primaryColor],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                      ),
+                                      child: const Center(
+                                        child: Icon(
+                                          Iconsax.user,
+                                          size: 40,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [Colors.orange[300]!, primaryColor],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Iconsax.user,
+                                        size: 40,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                           ),
                         ),
                         Positioned(
@@ -737,49 +815,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                 ),
 
-                const SizedBox(height: 18),
 
-                // Row: Stats Counters (Món ăn, Follower, Following, Lượt thích) underneath Name & Username
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.grey.withValues(alpha: 0.12),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildStatItem('$_videoCount', 'Món ăn')),
-                      _buildStatDivider(),
-                      Expanded(
-                        child: _buildStatItem(
-                          _followerCount >= 1000
-                              ? '${(_followerCount / 1000).toStringAsFixed(1)}K'
-                              : '$_followerCount',
-                          'Follower',
-                        ),
-                      ),
-                      _buildStatDivider(),
-                      Expanded(
-                        child: _buildStatItem('$_followingCount', 'Following'),
-                      ),
-                      _buildStatDivider(),
-                      Expanded(
-                        child: _buildStatItem(
-                          _likeCount >= 1000
-                              ? '${(_likeCount / 1000).toStringAsFixed(1)}K'
-                              : '$_likeCount',
-                          'Lượt thích',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
 
                 const SizedBox(height: 14),
 
@@ -839,17 +875,28 @@ class _ProfileScreenState extends State<ProfileScreen>
           // Tabs for Created, Liked, Saved
           Container(
             color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: primaryColor,
-              unselectedLabelColor: Colors.grey[500],
-              indicatorColor: primaryColor,
-              indicatorSize: TabBarIndicatorSize.tab,
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+              ),
+              child: TabBar(
+                controller: _tabController,
+                dividerColor: Colors.transparent,
+                splashFactory: NoSplash.splashFactory,
+                overlayColor: WidgetStateProperty.all(Colors.transparent),
+                enableFeedback: false,
+                labelColor: primaryColor,
+                unselectedLabelColor: Colors.grey[500],
+                indicatorColor: primaryColor,
+                indicatorSize: TabBarIndicatorSize.tab,
               tabs: const [
                 Tab(icon: Icon(Iconsax.video_play, size: 16)),
                 Tab(icon: Icon(Iconsax.heart, size: 16)),
                 Tab(icon: Icon(Iconsax.bookmark, size: 16)),
               ],
+            ),
             ),
           ),
 
@@ -866,30 +913,33 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ],
       ),
+      ),
     );
   }
 
-  Widget _buildStatDivider() {
-    return Container(
-      width: 1,
-      height: 24,
-      color: Colors.grey.withValues(alpha: 0.2),
-    );
-  }
-
-  Widget _buildStatItem(String count, String label) {
+  Widget _buildInlineStatItem(String count, String label) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           count,
           style: const TextStyle(
-            fontSize: 17,
+            fontSize: 17.5,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
+            letterSpacing: -0.3,
           ),
         ),
         const SizedBox(height: 2),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
@@ -1128,7 +1178,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 22),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1274,7 +1324,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             title: 'Tiếp tục với Google',
             onTap: () {
               Navigator.pop(context);
-              _loginDemoUser();
+              _showSocialUnderDevelopment('Google');
             },
           ),
           const SizedBox(height: 10),
@@ -1289,34 +1339,11 @@ class _ProfileScreenState extends State<ProfileScreen>
             title: 'Tiếp tục với Apple',
             onTap: () {
               Navigator.pop(context);
-              _loginDemoUser();
+              _showSocialUnderDevelopment('Apple');
             },
           ),
 
           const SizedBox(height: 16),
-          // Demo Instant Login Button
-          OutlinedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _loginDemoUser();
-            },
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 46),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              side: BorderSide(color: primaryColor),
-            ),
-            child: Text(
-              '🚀 Trải nghiệm thử tài khoản Chef Demo',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: primaryColor,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 14),
 
           // Row for "Quên mật khẩu?" (left) and "Đăng ký tài khoản" (right)
           Row(
