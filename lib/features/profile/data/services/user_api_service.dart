@@ -330,12 +330,30 @@ class UserApiService {
     }
   }
 
-  /// Get current user profile:
-  /// 1. Calls `/api/v1/auth/me` to authenticate and get account info (id/sub, email, roles).
-  /// 2. Calls `/api/v1/users/me` (or `/api/v1/users/{id}`) to fetch the full profile.
-  /// 3. Returns the combined AuthUser.
+  /// Get current user profile directly via User Service (`/api/v1/users/me`).
+  /// Does not call Auth Service (`/api/v1/auth/me`) since email is not needed in the profile page.
+  /// Falls back to Auth Service only if User Service is unavailable or in mock test environments.
   Future<AuthResult> getProfile(String accessToken, {String? userId}) async {
     try {
+      // 1. Primary: Fetch directly from User Service (/api/v1/users/me)
+      final userDetailResult = await getMyUserProfile(accessToken);
+      if (userDetailResult.isSuccess && userDetailResult.user != null) {
+        return userDetailResult;
+      }
+
+      if (userId != null &&
+          userId.isNotEmpty &&
+          !userId.startsWith('demo-')) {
+        final detailResult = await getUserDetails(
+          accessToken: accessToken,
+          userId: userId,
+        );
+        if (detailResult.isSuccess && detailResult.user != null) {
+          return detailResult;
+        }
+      }
+
+      // 2. Fallback to /api/v1/auth/me if user service is unavailable or in mock test suites
       final decoded = await _client.get(
         ApiConfig.mePath,
         token: accessToken,
@@ -345,57 +363,11 @@ class UserApiService {
           ? decoded['data'] as Map<String, dynamic>
           : decoded;
 
-      var authUser = data['user'] is Map<String, dynamic>
+      final authUser = data['user'] is Map<String, dynamic>
           ? AuthUser.fromJson(data['user'] as Map<String, dynamic>)
           : (data['email'] != null || data['sub'] != null || data['id'] != null
               ? AuthUser.fromJson(data)
               : null);
-
-      try {
-        final userDetailResult = await getMyUserProfile(accessToken);
-        if (userDetailResult.isSuccess && userDetailResult.user != null) {
-          final detailUser = userDetailResult.user!;
-          authUser = (authUser ?? detailUser).copyWith(
-            id: detailUser.id.isNotEmpty ? detailUser.id : authUser?.id,
-            fullName: detailUser.fullName.isNotEmpty
-                ? detailUser.fullName
-                : authUser?.fullName,
-            username: detailUser.username ?? authUser?.username,
-            gender: detailUser.gender ?? authUser?.gender,
-            dateOfBirth: detailUser.dateOfBirth ?? authUser?.dateOfBirth,
-            bio: detailUser.bio ?? authUser?.bio,
-            avatar: detailUser.avatar ?? authUser?.avatar,
-            videoCount: detailUser.videoCount,
-            followerCount: detailUser.followerCount,
-            followingCount: detailUser.followingCount,
-            likeCount: detailUser.likeCount,
-          );
-        } else if (userId != null &&
-            userId.isNotEmpty &&
-            !userId.startsWith('demo-')) {
-          final detailResult = await getUserDetails(
-            accessToken: accessToken,
-            userId: userId,
-          );
-          if (detailResult.isSuccess && detailResult.user != null) {
-            final detailUser = detailResult.user!;
-            authUser = (authUser ?? detailUser).copyWith(
-              fullName: detailUser.fullName.isNotEmpty
-                  ? detailUser.fullName
-                  : authUser?.fullName,
-              username: detailUser.username ?? authUser?.username,
-              gender: detailUser.gender ?? authUser?.gender,
-              dateOfBirth: detailUser.dateOfBirth ?? authUser?.dateOfBirth,
-              bio: detailUser.bio ?? authUser?.bio,
-              avatar: detailUser.avatar ?? authUser?.avatar,
-              videoCount: detailUser.videoCount,
-              followerCount: detailUser.followerCount,
-              followingCount: detailUser.followingCount,
-              likeCount: detailUser.likeCount,
-            );
-          }
-        }
-      } catch (_) {}
 
       return AuthResult(
         isSuccess: true,

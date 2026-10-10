@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:cookconnect/core/widgets/custom_pull_to_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:flutter_remix/flutter_remix.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
@@ -8,8 +10,8 @@ import 'package:cookconnect/features/activity/presentation/pages/activity_screen
 import 'package:cookconnect/features/profile/presentation/pages/find_friends_screen.dart';
 import 'package:cookconnect/features/auth/presentation/pages/login_screen.dart';
 import 'package:cookconnect/features/auth/presentation/pages/register_email_screen.dart';
-import 'package:cookconnect/features/profile/presentation/pages/edit_profile_screen.dart';
-import 'package:cookconnect/features/profile/presentation/pages/edit_bio_screen.dart';
+import 'package:cookconnect/features/profile/presentation/pages/edit/edit_profile_screen.dart';
+import 'package:cookconnect/features/profile/presentation/pages/edit/edit_bio_screen.dart';
 import 'package:cookconnect/core/widgets/google_logo.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -26,10 +28,17 @@ class ProfileScreenState extends State<ProfileScreen>
   late AnimationController _menuAnimationController;
   late Animation<double> _menuCurvedAnimation;
   late AnimationController _refreshAnimController;
+  AnimationController? _collapseAnimController;
+  Timer? _minRefreshTimer;
   final ScrollController _scrollController = ScrollController();
   bool _showAppBarTitle = false;
   double _pullOffset = 0.0;
   bool _isRefreshing = false;
+
+  double get pullOffset => _pullOffset;
+  bool get isRefreshing => _isRefreshing;
+  AnimationController get refreshAnimControllerDebug => _refreshAnimController;
+  AnimationController? get collapseAnimControllerDebug => _collapseAnimController;
 
   @override
   void initState() {
@@ -49,6 +58,10 @@ class ProfileScreenState extends State<ProfileScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _collapseAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
     _scrollController.addListener(_onScroll);
     AuthService.instance.addListener(_onAuthChanged);
     if (AuthService.instance.isLoggedIn) {
@@ -61,6 +74,9 @@ class ProfileScreenState extends State<ProfileScreen>
     setState(() {
       if (_tabController.index != 0) {
         _showAppBarTitle = false;
+        if (_pullOffset > 0 || _isRefreshing) {
+          _resetPullOffset();
+        }
         if (_scrollController.hasClients && _scrollController.offset > 0) {
           _scrollController.jumpTo(0);
         }
@@ -69,32 +85,58 @@ class ProfileScreenState extends State<ProfileScreen>
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
-    if (_tabController.index != 0) return false;
+    if (_tabController.index != 0) {
+      if (_pullOffset > 0 || _isRefreshing) {
+        _resetPullOffset();
+      }
+      return false;
+    }
 
-    if (notification is OverscrollNotification) {
-      // Catching overscroll at the top edge (user pulls down when already at top)
+    // Safety guard: if page content is scrolled down, pull offset must be zero
+    if (_scrollController.hasClients && _scrollController.offset > 5.0) {
+      if (_pullOffset > 0 && !_isRefreshing) {
+        _resetPullOffset();
+      }
+      return false;
+    }
+
+    if (notification is ScrollStartNotification) {
+      if (!_isRefreshing && (_collapseAnimController?.isAnimating ?? false)) {
+        _collapseAnimController?.stop();
+      }
+    } else if (notification is OverscrollNotification) {
+      // User is overscrolling at top edge
       if (!_isRefreshing && notification.metrics.pixels <= 0) {
-        final dy = notification.overscroll.abs();
         if (notification.overscroll < 0) {
+          final dy = notification.overscroll.abs();
           setState(() {
             _pullOffset = (_pullOffset + dy * 0.45).clamp(0.0, 75.0);
           });
         }
       }
     } else if (notification is ScrollUpdateNotification) {
-      // When user is dragging and pullOffset is active, track finger movement
-      if (!_isRefreshing && _pullOffset > 0 && notification.dragDetails != null) {
-        final dy = notification.dragDetails!.primaryDelta ?? 0;
-        setState(() {
-          _pullOffset = (_pullOffset + dy * 0.55).clamp(0.0, 75.0);
-        });
+      if (!_isRefreshing) {
+        if (_pullOffset > 0 && notification.dragDetails != null) {
+          final dy = notification.dragDetails!.primaryDelta ?? 0;
+          setState(() {
+            _pullOffset = (_pullOffset + dy * 0.55).clamp(0.0, 75.0);
+          });
+        }
+      }
+    } else if (notification is UserScrollNotification) {
+      if (!_isRefreshing && notification.direction == ScrollDirection.idle) {
+        if (_pullOffset >= 48.0) {
+          _triggerCustomRefresh();
+        } else if (_pullOffset > 0 && !(_collapseAnimController?.isAnimating ?? false)) {
+          _animateResetPullOffset();
+        }
       }
     } else if (notification is ScrollEndNotification) {
       if (!_isRefreshing) {
         if (_pullOffset >= 48.0) {
           _triggerCustomRefresh();
-        } else if (_pullOffset > 0) {
-          _resetPullOffset();
+        } else if (_pullOffset > 0 && !(_collapseAnimController?.isAnimating ?? false)) {
+          _animateResetPullOffset();
         }
       }
     }
@@ -102,24 +144,79 @@ class ProfileScreenState extends State<ProfileScreen>
   }
 
   void _triggerCustomRefresh() async {
+    if (_isRefreshing) return;
+    _collapseAnimController?.stop();
     setState(() {
       _isRefreshing = true;
       _pullOffset = 60.0;
     });
     _refreshAnimController.repeat(reverse: true);
+
     try {
-      await AuthService.instance.fetchUserProfile();
+      final refreshFuture = AuthService.instance.fetchUserProfile();
+      final completer = Completer<void>();
+      _minRefreshTimer?.cancel();
+      _minRefreshTimer = Timer(const Duration(milliseconds: 500), () {
+        if (!completer.isCompleted) completer.complete();
+      });
+      await Future.wait([
+        refreshFuture.timeout(const Duration(seconds: 4), onTimeout: () {}),
+        completer.future,
+      ]);
     } catch (_) {}
+
     if (mounted) {
       _refreshAnimController.stop();
-      _resetPullOffset();
+      setState(() {
+        _isRefreshing = false;
+      });
+      _animateResetPullOffset();
     }
   }
 
   void _resetPullOffset() {
-    setState(() {
-      _isRefreshing = false;
-      _pullOffset = 0.0;
+    _collapseAnimController?.stop();
+    _refreshAnimController.stop();
+    if (mounted) {
+      setState(() {
+        _isRefreshing = false;
+        _pullOffset = 0.0;
+      });
+    }
+  }
+
+  void _animateResetPullOffset() {
+    if (!mounted) return;
+    if (_pullOffset <= 0.0) {
+      _resetPullOffset();
+      return;
+    }
+    _collapseAnimController?.stop();
+    _refreshAnimController.stop();
+    final double startOffset = _pullOffset;
+    final Animation<double> curve = CurvedAnimation(
+      parent: _collapseAnimController!,
+      curve: Curves.easeOutCubic,
+    );
+    _collapseAnimController!.reset();
+
+    void listener() {
+      if (!mounted) return;
+      setState(() {
+        _pullOffset = (startOffset * (1.0 - curve.value)).clamp(0.0, 75.0);
+      });
+    }
+
+    _collapseAnimController!.addListener(listener);
+    _collapseAnimController!.forward().then((_) {
+      _collapseAnimController?.removeListener(listener);
+      if (mounted) {
+        _refreshAnimController.stop();
+        setState(() {
+          _pullOffset = 0.0;
+          _isRefreshing = false;
+        });
+      }
     });
   }
 
@@ -140,6 +237,7 @@ class ProfileScreenState extends State<ProfileScreen>
 
   @override
   void dispose() {
+    _minRefreshTimer?.cancel();
     _tabController.removeListener(_onTabChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
@@ -147,6 +245,7 @@ class ProfileScreenState extends State<ProfileScreen>
     _tabController.dispose();
     _menuAnimationController.dispose();
     _refreshAnimController.dispose();
+    _collapseAnimController?.dispose();
     super.dispose();
   }
 
@@ -190,10 +289,7 @@ class ProfileScreenState extends State<ProfileScreen>
       if (user.username != null && user.username!.isNotEmpty) {
         return '@${user.username}';
       }
-      final nameOrEmail = user.email.isNotEmpty
-          ? user.email.split('@').first
-          : user.fullName;
-      final clean = nameOrEmail
+      final clean = user.fullName
           .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '')
           .toLowerCase();
       return clean.isNotEmpty ? '@$clean' : '@chef_cookconnect';
@@ -910,18 +1006,19 @@ class ProfileScreenState extends State<ProfileScreen>
             return [
               if (_pullOffset > 0 || _isRefreshing)
                 SliverToBoxAdapter(
-                  child: AnimatedContainer(
-                    duration: _isRefreshing
-                        ? const Duration(milliseconds: 200)
-                        : Duration.zero,
+                  child: SizedBox(
                     height: _pullOffset,
-                    color: Colors.white,
-                    alignment: Alignment.center,
-                    child: CustomRefreshBadge(
-                      isRefreshing: _isRefreshing,
-                      percentage: (_pullOffset / 55.0).clamp(0.0, 1.0),
-                      primaryColor: primaryColor,
-                      animController: _refreshAnimController,
+                    child: ClipRect(
+                      child: Container(
+                        color: Colors.white,
+                        alignment: Alignment.center,
+                        child: CustomRefreshBadge(
+                          isRefreshing: _isRefreshing,
+                          percentage: (_pullOffset / 55.0).clamp(0.0, 1.0),
+                          primaryColor: primaryColor,
+                          animController: _refreshAnimController,
+                        ),
+                      ),
                     ),
                   ),
                 ),

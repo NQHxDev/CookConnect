@@ -95,8 +95,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sửa thông tin'), findsOneWidget);
+    expect(find.text('Về bạn'), findsNothing);
     expect(find.text('Thông tin cơ bản'), findsOneWidget);
-    expect(find.text('Thông tin chi tiết & Liên hệ'), findsOneWidget);
+    expect(find.text('Khác'), findsOneWidget);
+    expect(find.text('Thông tin chi tiết & Liên hệ'), findsNothing);
+    expect(find.text('Giới tính'), findsNothing);
 
     // Tap "Tên" item -> opens EditNameScreen
     await tester.tap(find.text('Tên'));
@@ -116,10 +119,10 @@ void main() {
     await tester.tap(find.byIcon(Iconsax.arrow_left));
     await tester.pumpAndSettle();
 
-    // Tap "Giới tính" item -> opens EditContactInfoScreen
-    await tester.tap(find.text('Giới tính'));
+    // Tap "Tiểu sử" item -> opens EditBioScreen
+    await tester.tap(find.text('Tiểu sử'));
     await tester.pumpAndSettle();
-    expect(find.text('Thông tin cá nhân & Liên hệ'), findsOneWidget);
+    expect(find.text('Tiểu sử cá nhân'), findsOneWidget);
 
     // Go back
     await tester.tap(find.byIcon(Iconsax.arrow_left));

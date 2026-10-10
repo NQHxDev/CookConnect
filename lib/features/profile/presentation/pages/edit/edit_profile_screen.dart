@@ -4,10 +4,9 @@ import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cookconnect/core/network/api_service.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
-import 'package:cookconnect/features/profile/presentation/pages/edit_name_screen.dart';
-import 'package:cookconnect/features/profile/presentation/pages/edit_username_screen.dart';
-import 'package:cookconnect/features/profile/presentation/pages/edit_bio_screen.dart';
-import 'package:cookconnect/features/profile/presentation/pages/edit_contact_info_screen.dart';
+import 'package:cookconnect/features/profile/presentation/pages/edit/edit_name_screen.dart';
+import 'package:cookconnect/features/profile/presentation/pages/edit/edit_username_screen.dart';
+import 'package:cookconnect/features/profile/presentation/pages/edit/edit_bio_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final bool initialFocusBio;
@@ -247,23 +246,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  String _formatGender(String? gender) {
-    if (gender == 'MALE') return 'Nam ♂';
-    if (gender == 'FEMALE') return 'Nữ ♀';
-    if (gender == 'OTHER') return 'Khác';
-    return 'Chưa thiết lập';
-  }
-
-  String _formatDob(String? dob) {
-    if (dob == null || dob.isEmpty) return 'Chưa thiết lập';
-    try {
-      final dt = DateTime.parse(dob);
-      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-    } catch (_) {
-      return dob;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
@@ -275,8 +257,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     final username = (user?.username != null && user!.username!.isNotEmpty)
         ? '@${user.username}'
-        : (user?.email.isNotEmpty == true
-            ? '@${user!.email.split('@').first}'
+        : (user?.fullName != null && user!.fullName.isNotEmpty
+            ? '@${user.fullName.replaceAll(' ', '').toLowerCase()}'
             : '@username');
 
     final bio = (user?.bio != null && user!.bio!.trim().isNotEmpty)
@@ -290,8 +272,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Iconsax.arrow_left, color: Colors.black87),
@@ -444,9 +427,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             const SizedBox(height: 16),
 
-            // SECTION 1: THÔNG TIN CƠ BẢN (Sửa riêng từng trường)
+            // SECTION 1: TÊN & TÊN NGƯỜI DÙNG (Không có tiêu đề)
             _buildSectionContainer(
-              title: 'Thông tin cơ bản',
               children: [
                 _buildRowItem(
                   title: 'Tên',
@@ -460,7 +442,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   value: username,
                   onTap: () => _navigateTo(const EditUsernameScreen()),
                 ),
-                _buildDivider(),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            // SECTION 2: THÔNG TIN CƠ BẢN (Tiểu sử tách riêng)
+            _buildSectionContainer(
+              title: 'Thông tin cơ bản',
+              children: [
                 _buildRowItem(
                   title: 'Tiểu sử',
                   value: bio,
@@ -473,36 +463,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             const SizedBox(height: 20),
 
-            // SECTION 2: THÔNG TIN CHI TIẾT & LIÊN HỆ (Sửa chung cụm)
+            // SECTION 3: KHÁC
             _buildSectionContainer(
-              title: 'Thông tin chi tiết & Liên hệ',
-              children: [
-                _buildRowItem(
-                  title: 'Giới tính',
-                  value: _formatGender(user?.gender),
-                  onTap: () => _navigateTo(const EditContactInfoScreen()),
-                ),
-                _buildDivider(),
-                _buildRowItem(
-                  title: 'Ngày sinh',
-                  value: _formatDob(user?.dateOfBirth),
-                  onTap: () => _navigateTo(const EditContactInfoScreen()),
-                ),
-                _buildDivider(),
-                _buildRowItem(
-                  title: 'Email',
-                  value: user?.email ?? 'Chưa thiết lập',
-                  badge: 'Đã xác thực',
-                  onTap: () => _navigateTo(const EditContactInfoScreen()),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // SECTION 3: LIÊN KẾT MẠNG XÃ HỘI
-            _buildSectionContainer(
-              title: 'Mạng xã hội & Khác',
+              title: 'Khác',
               children: [
                 _buildRowItem(
                   title: 'Trang web',
@@ -528,24 +491,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildSectionContainer({
-    required String title,
+    String? title,
     required List<Widget> children,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey[600],
-              letterSpacing: 0.3,
+        if (title != null && title.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[600],
+                letterSpacing: 0.3,
+              ),
             ),
           ),
-        ),
         Container(
           decoration: BoxDecoration(
             color: Colors.white,

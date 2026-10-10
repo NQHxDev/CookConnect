@@ -35,9 +35,9 @@ class _CustomRefreshBadgeState extends State<CustomRefreshBadge>
         vsync: this,
         duration: const Duration(milliseconds: 900),
       );
-      if (widget.isRefreshing) {
-        _internalController!.repeat(reverse: true);
-      }
+    }
+    if (widget.isRefreshing) {
+      _effectiveController.repeat(reverse: true);
     }
   }
 
@@ -61,6 +61,10 @@ class _CustomRefreshBadgeState extends State<CustomRefreshBadge>
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.isRefreshing && widget.percentage <= 0.01) {
+      return const SizedBox.shrink();
+    }
+
     final activeColor =
         widget.primaryColor ?? Theme.of(context).colorScheme.primary;
 

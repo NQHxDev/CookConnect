@@ -1,0 +1,133 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:cookconnect/features/settings/presentation/pages/settings_screen.dart';
+
+void main() {
+  testWidgets('SettingsScreen renders header, all 8 sections, and handles logout option', (WidgetTester tester) async {
+    bool loggedOut = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          onLogoutRequested: () {
+            loggedOut = true;
+          },
+        ),
+      ),
+    );
+
+    // Verify AppBar header title exists
+    expect(find.text('Cài đặt & Quyền riêng tư'), findsOneWidget);
+
+    // Verify back button exists
+    expect(find.byType(IconButton), findsOneWidget);
+
+    // Verify 'Hoạt động' header and options exist
+    expect(find.text('Hoạt động'), findsOneWidget);
+    expect(find.text('Quản lý bài đăng'), findsOneWidget);
+    expect(find.text('Tùy chọn nội dung'), findsOneWidget);
+    expect(find.text('Thông báo'), findsOneWidget);
+    expect(find.text('Thời gian sử dụng'), findsOneWidget);
+    expect(find.text('Gia đình'), findsOneWidget);
+
+    // Verify 'Tài khoản' header and options exist
+    expect(find.text('Tài khoản'), findsNWidgets(2)); // Header + Option item
+    expect(find.text('Bảo mật & Quyền'), findsOneWidget);
+    expect(find.text('Chia sẻ hồ sơ'), findsOneWidget);
+
+    // Scroll down to Cài đặt hiển thị
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    // Verify 'Cài đặt hiển thị' header and options exist
+    expect(find.text('Cài đặt hiển thị'), findsOneWidget);
+    expect(find.text('Tài khoản riêng tư'), findsOneWidget);
+    expect(find.text('Tài khoản hạn chế'), findsOneWidget);
+    expect(find.text('Tài khoản bị chặn'), findsOneWidget);
+
+    // Scroll down to Tương tác
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    // Verify 'Tương tác' header and options exist
+    expect(find.text('Tương tác'), findsOneWidget);
+    expect(find.text('Bình luận'), findsOneWidget);
+    expect(find.text('Nhắc đến'), findsOneWidget);
+    expect(find.text('Tin nhắn trực tiếp'), findsOneWidget);
+    expect(find.text('Tải về'), findsOneWidget);
+    expect(find.text('Người xem'), findsOneWidget);
+
+    // Scroll down to Tùy chọn
+    await tester.drag(find.byType(ListView), const Offset(0, -350));
+    await tester.pumpAndSettle();
+
+    // Verify 'Tùy chọn' header and options exist
+    expect(find.text('Tùy chọn'), findsOneWidget);
+    expect(find.text('Kiểm soát khán giả'), findsOneWidget);
+    expect(find.text('Quảng cáo'), findsOneWidget);
+    expect(find.text('Phát video'), findsOneWidget);
+    expect(find.text('Ngôn ngữ'), findsOneWidget);
+    expect(find.text('Hiển thị'), findsOneWidget);
+    expect(find.text('Trợ năng'), findsOneWidget);
+
+    // Scroll down to Bộ nhớ đệm & Dữ liệu di động
+    await tester.drag(find.byType(ListView), const Offset(0, -350));
+    await tester.pumpAndSettle();
+
+    // Verify 'Bộ nhớ đệm & Dữ liệu di động' header and options exist
+    expect(find.text('Bộ nhớ đệm & Dữ liệu di động'), findsOneWidget);
+    expect(find.text('Video ngoại tuyến'), findsOneWidget);
+    expect(find.text('Giải phóng dung lượng'), findsOneWidget);
+    expect(find.text('Trình tiết kiệm dữ liệu'), findsOneWidget);
+
+    // Scroll down to Hỗ trợ & Chính sách
+    await tester.drag(find.byType(ListView), const Offset(0, -350));
+    await tester.pumpAndSettle();
+
+    // Verify 'Hỗ trợ & Chính sách' header and options exist
+    expect(find.text('Hỗ trợ & Chính sách'), findsOneWidget);
+    expect(find.text('Trung tâm Trợ giúp'), findsOneWidget);
+    expect(find.text('Trung tâm Quyền riêng tư'), findsOneWidget);
+    expect(find.text('Điều khoản và Chính sách'), findsOneWidget);
+
+    // Scroll down to Đăng nhập
+    await tester.drag(find.byType(ListView), const Offset(0, -350));
+    await tester.pumpAndSettle();
+
+    // Verify 'Đăng nhập' header and options exist
+    expect(find.text('Đăng nhập'), findsOneWidget);
+    expect(find.text('Chuyển đổi tài khoản'), findsOneWidget);
+    expect(find.text('Đăng xuất'), findsOneWidget);
+
+    // Tap 'Đăng xuất' option
+    await tester.tap(find.text('Đăng xuất'));
+    await tester.pumpAndSettle();
+
+    expect(loggedOut, isTrue);
+  });
+
+  testWidgets('Tapping Tài khoản item navigates to AccountScreen', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SettingsScreen(),
+      ),
+    );
+
+    // Find the Tài khoản item in the list
+    final accountItemFinder = find.widgetWithText(InkWell, 'Tài khoản');
+    expect(accountItemFinder, findsOneWidget);
+
+    await tester.tap(accountItemFinder);
+    await tester.pumpAndSettle();
+
+    // Verify AccountScreen is displayed
+    expect(find.text('Tài khoản'), findsOneWidget);
+
+    // Tap back button
+    await tester.tap(find.byType(IconButton));
+    await tester.pumpAndSettle();
+
+    // Verify back to SettingsScreen
+    expect(find.byType(SettingsScreen), findsOneWidget);
+  });
+}
