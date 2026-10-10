@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'package:cookconnect/core/widgets/custom_pull_to_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cookconnect/features/activity/presentation/pages/activity_screen.dart';
@@ -326,47 +326,10 @@ class _ChatScreenState extends State<ChatScreen> {
           parent: AlwaysScrollableScrollPhysics(),
         ),
         slivers: [
-          // Cupertino-style Pull-to-refresh: đẩy danh sách tin xuống nhường chỗ cho spinner ở trên
-          CupertinoSliverRefreshControl(
+          // Custom Pull-to-refresh: đẩy danh sách tin xuống nhường chỗ cho hiệu ứng 3 chấm nhảy sóng ở trên
+          CustomSliverRefreshControl(
             onRefresh: _handleRefresh,
-            builder: (
-              BuildContext context,
-              RefreshIndicatorMode refreshState,
-              double pulledExtent,
-              double refreshTriggerPullDistance,
-              double refreshIndicatorExtent,
-            ) {
-              final double percentageComplete =
-                  (pulledExtent / refreshTriggerPullDistance).clamp(0.0, 1.0);
-
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: (refreshState == RefreshIndicatorMode.refresh ||
-                          refreshState == RefreshIndicatorMode.armed)
-                      ? SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                          ),
-                        )
-                      : Opacity(
-                          opacity: percentageComplete,
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
-                              value: percentageComplete > 0.1 ? percentageComplete : null,
-                              valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                            ),
-                          ),
-                        ),
-                ),
-              );
-            },
+            primaryColor: primaryColor,
           ),
           // Danh sách Tin / Story của bạn bè & người đã follow
           SliverToBoxAdapter(

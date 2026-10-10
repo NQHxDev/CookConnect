@@ -16,14 +16,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    LibraryScreen(),
-    UploadScreen(),
-    ChatScreen(),
-    ProfileScreen(),
-  ];
-
   void _onTabTapped(int index) {
     setState(() {
       _currentIndex = index;
@@ -32,8 +24,16 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      const HomeScreen(),
+      const LibraryScreen(),
+      const UploadScreen(),
+      const ChatScreen(),
+      ProfileScreen(isActive: _currentIndex == 4),
+    ];
+
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -60,8 +60,8 @@ class _MainScreenState extends State<MainScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(
-                  icon: Iconsax.home,
-                  activeIcon: Iconsax.home5,
+                  icon: Iconsax.home_2,
+                  activeIcon: Iconsax.home_25,
                   label: 'Trang chủ',
                   index: 0,
                 ),

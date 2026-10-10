@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cookconnect/core/widgets/heart_animation_overlay.dart';
 import 'package:cookconnect/features/recipe/presentation/widgets/comments_bottom_sheet.dart';
+import 'package:cookconnect/features/recipe/presentation/pages/search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,40 +36,44 @@ class _HomeScreenState extends State<HomeScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        toolbarHeight: 60,
+        toolbarHeight: 50,
+        titleSpacing: 8,
         title: Row(
           children: [
             // Live icon (leftmost)
             IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               icon: const Icon(
                 Iconsax.video_square,
                 color: Colors.white,
-                size: 24,
+                size: 22,
               ),
               onPressed: () {},
             ),
-            const SizedBox(width: 4),
             // Scrollable tabs in center
             Expanded(
               child: TabBar(
                 controller: _tabController,
                 indicatorColor: Colors.white,
-                indicatorWeight: 2.5,
+                indicatorWeight: 2.0,
                 indicatorSize: TabBarIndicatorSize.label,
                 dividerColor: Colors.transparent,
                 labelColor: Colors.white,
-                unselectedLabelColor: Colors.white.withValues(alpha: 0.6),
+                unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
                 labelStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
                 ),
                 unselectedLabelStyle: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.normal,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.2,
                 ),
                 isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                tabAlignment: TabAlignment.center,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 10),
                 splashFactory: NoSplash.splashFactory,
                 overlayColor: WidgetStateProperty.all(Colors.transparent),
                 tabs: const [
@@ -78,15 +83,22 @@ class _HomeScreenState extends State<HomeScreen>
                 ],
               ),
             ),
-            const SizedBox(width: 4),
             // Search icon (rightmost)
             IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               icon: const Icon(
                 Iconsax.search_normal_1,
                 color: Colors.white,
-                size: 22,
+                size: 20,
               ),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SearchScreen(),
+                  ),
+                );
+              },
             ),
           ],
         ),

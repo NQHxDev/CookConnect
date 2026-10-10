@@ -1,8 +1,11 @@
+import 'package:cookconnect/core/widgets/custom_pull_to_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:flutter_remix/flutter_remix.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 import 'package:cookconnect/features/settings/presentation/pages/settings_screen.dart';
+import 'package:cookconnect/features/activity/presentation/pages/activity_screen.dart';
+import 'package:cookconnect/features/profile/presentation/pages/find_friends_screen.dart';
 import 'package:cookconnect/features/auth/presentation/pages/login_screen.dart';
 import 'package:cookconnect/features/auth/presentation/pages/register_email_screen.dart';
 import 'package:cookconnect/features/profile/presentation/pages/edit_profile_screen.dart';
@@ -10,23 +13,122 @@ import 'package:cookconnect/features/profile/presentation/pages/edit_bio_screen.
 import 'package:cookconnect/core/widgets/google_logo.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool isActive;
+  const ProfileScreen({super.key, this.isActive = true});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen>
-    with SingleTickerProviderStateMixin {
+class ProfileScreenState extends State<ProfileScreen>
+    with TickerProviderStateMixin {
   late TabController _tabController;
+  late AnimationController _menuAnimationController;
+  late Animation<double> _menuCurvedAnimation;
+  late AnimationController _refreshAnimController;
+  final ScrollController _scrollController = ScrollController();
+  bool _showAppBarTitle = false;
+  double _pullOffset = 0.0;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _menuAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _menuCurvedAnimation = CurvedAnimation(
+      parent: _menuAnimationController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _refreshAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _scrollController.addListener(_onScroll);
     AuthService.instance.addListener(_onAuthChanged);
     if (AuthService.instance.isLoggedIn) {
       AuthService.instance.fetchUserProfile();
+    }
+  }
+
+  void _onTabChanged() {
+    if (!mounted) return;
+    setState(() {
+      if (_tabController.index != 0) {
+        _showAppBarTitle = false;
+        if (_scrollController.hasClients && _scrollController.offset > 0) {
+          _scrollController.jumpTo(0);
+        }
+      }
+    });
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (_tabController.index != 0) return false;
+
+    if (notification is OverscrollNotification) {
+      // Catching overscroll at the top edge (user pulls down when already at top)
+      if (!_isRefreshing && notification.metrics.pixels <= 0) {
+        final dy = notification.overscroll.abs();
+        if (notification.overscroll < 0) {
+          setState(() {
+            _pullOffset = (_pullOffset + dy * 0.45).clamp(0.0, 75.0);
+          });
+        }
+      }
+    } else if (notification is ScrollUpdateNotification) {
+      // When user is dragging and pullOffset is active, track finger movement
+      if (!_isRefreshing && _pullOffset > 0 && notification.dragDetails != null) {
+        final dy = notification.dragDetails!.primaryDelta ?? 0;
+        setState(() {
+          _pullOffset = (_pullOffset + dy * 0.55).clamp(0.0, 75.0);
+        });
+      }
+    } else if (notification is ScrollEndNotification) {
+      if (!_isRefreshing) {
+        if (_pullOffset >= 48.0) {
+          _triggerCustomRefresh();
+        } else if (_pullOffset > 0) {
+          _resetPullOffset();
+        }
+      }
+    }
+    return false;
+  }
+
+  void _triggerCustomRefresh() async {
+    setState(() {
+      _isRefreshing = true;
+      _pullOffset = 60.0;
+    });
+    _refreshAnimController.repeat(reverse: true);
+    try {
+      await AuthService.instance.fetchUserProfile();
+    } catch (_) {}
+    if (mounted) {
+      _refreshAnimController.stop();
+      _resetPullOffset();
+    }
+  }
+
+  void _resetPullOffset() {
+    setState(() {
+      _isRefreshing = false;
+      _pullOffset = 0.0;
+    });
+  }
+
+  void _onScroll() {
+    final show = _scrollController.hasClients && _scrollController.offset > 70;
+    if (show != _showAppBarTitle) {
+      setState(() {
+        _showAppBarTitle = show;
+      });
     }
   }
 
@@ -38,9 +140,38 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     AuthService.instance.removeListener(_onAuthChanged);
     _tabController.dispose();
+    _menuAnimationController.dispose();
+    _refreshAnimController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.isActive && oldWidget.isActive) {
+      closeMenu(instant: true);
+    }
+  }
+
+  void _openMenu() {
+    _menuAnimationController.forward();
+  }
+
+  void _closeMenu() {
+    closeMenu();
+  }
+
+  void closeMenu({bool instant = false}) {
+    if (instant) {
+      _menuAnimationController.value = 0.0;
+    } else {
+      _menuAnimationController.reverse();
+    }
   }
 
   bool get _isLoggedIn => AuthService.instance.isLoggedIn;
@@ -297,51 +428,149 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        leading: _isLoggedIn
-            ? IconButton(
-                icon: const Icon(Iconsax.edit_2, color: Colors.black87),
-                tooltip: 'Sửa thông tin',
-                onPressed: () => _navigateToEditProfileScreen(),
-              )
-            : null,
-        title: _isLoggedIn
-            ? null
-            : const Text(
-                'Cá nhân',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                  color: Colors.black87,
+    final screenWidth = MediaQuery.of(context).size.width;
+    final menuWidth = screenWidth * 0.8; // 8 phần tùy chọn (80%)
+
+    return PopScope(
+      canPop: _menuAnimationController.value == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _menuAnimationController.value > 0) {
+          _closeMenu();
+        }
+      },
+      child: AnimatedBuilder(
+        animation: _menuCurvedAnimation,
+        builder: (context, child) {
+          final progress = _menuCurvedAnimation.value;
+          final slideOffset = menuWidth * progress;
+
+          return Stack(
+            children: [
+              // 1. Toàn bộ trang cá nhân bị đẩy sang trái khi mở menu (giữ lại 2 phần = 20% bên trái)
+              Transform.translate(
+                offset: Offset(-slideOffset, 0),
+                child: SizedBox(
+                  width: screenWidth,
+                  height: MediaQuery.of(context).size.height,
+                  child: Scaffold(
+                    backgroundColor: const Color(0xFFF8F9FA),
+                    appBar: AppBar(
+                      backgroundColor: Colors.white,
+                      surfaceTintColor: Colors.transparent,
+                      elevation: 0,
+                      scrolledUnderElevation: 0,
+                      centerTitle: true,
+                      leading: _isLoggedIn
+                          ? IconButton(
+                              icon: const Icon(Iconsax.edit_2, color: Colors.black87),
+                              tooltip: 'Sửa thông tin',
+                              onPressed: () => _navigateToEditProfileScreen(),
+                            )
+                          : null,
+                      title: _isLoggedIn
+                          ? IgnorePointer(
+                              ignoring: !_showAppBarTitle,
+                              child: AnimatedOpacity(
+                                opacity: _showAppBarTitle ? 1.0 : 0.0,
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeInOut,
+                                child: Text(
+                                  _userName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: Colors.black87,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'Cá nhân',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                                color: Colors.black87,
+                              ),
+                            ),
+                      actions: [
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Iconsax.user_add, color: Colors.black87, size: 21),
+                          tooltip: 'Tìm bạn bè',
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const FindFriendsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.menu_rounded, color: Colors.black87, size: 24),
+                          tooltip: 'Menu',
+                          onPressed: _openMenu,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ),
+                    body: _isLoggedIn ? _buildLoggedInView() : _buildGuestView(),
+                  ),
                 ),
               ),
-        actions: [
-          IconButton(
-            icon: const Icon(Iconsax.setting_2, color: Colors.black87),
-            tooltip: 'Cài đặt',
-            onPressed: _navigateToSettings,
-          ),
-          IconButton(
-            icon: const Icon(Iconsax.share, color: Colors.black87),
-            tooltip: 'Chia sẻ',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã sao chép liên kết ứng dụng CookConnect!'),
-                  behavior: SnackBarBehavior.floating,
-                  duration: Duration(seconds: 2),
+
+              // 2. Lớp phủ lên 2 phần trang cá nhân còn lại bên trái (chạm để đóng / vuốt phải để đóng)
+              if (progress > 0)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: screenWidth - slideOffset,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _closeMenu,
+                    onHorizontalDragUpdate: (details) {
+                      if (details.primaryDelta != null && details.primaryDelta! > 3) {
+                        _closeMenu();
+                      }
+                    },
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.25 * progress),
+                    ),
+                  ),
                 ),
-              );
-            },
-          ),
-        ],
+
+              // 3. Tab/Page Tùy chọn chiếm 8 phần (80%) trượt vào từ bên phải
+              if (progress > 0)
+                Positioned(
+                  right: (1.0 - progress) * -menuWidth,
+                  top: 0,
+                  bottom: 0,
+                  width: menuWidth,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 16,
+                          offset: const Offset(-4, 0),
+                        ),
+                      ],
+                    ),
+                    child: _buildOptionsPage(context),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
-      body: _isLoggedIn ? _buildLoggedInView() : _buildGuestView(),
     );
   }
 
@@ -623,296 +852,323 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  TabBar _buildTabBar(Color primaryColor) {
+    return TabBar(
+      controller: _tabController,
+      dividerColor: Colors.transparent,
+      splashFactory: NoSplash.splashFactory,
+      overlayColor: WidgetStateProperty.all(Colors.transparent),
+      enableFeedback: false,
+      labelColor: primaryColor,
+      unselectedLabelColor: Colors.grey[500],
+      indicatorColor: primaryColor,
+      indicatorSize: TabBarIndicatorSize.tab,
+      tabs: const [
+        Tab(icon: Icon(Iconsax.video_play, size: 21)),
+        Tab(icon: Icon(Iconsax.heart, size: 21)),
+        Tab(icon: Icon(Iconsax.bookmark, size: 21)),
+      ],
+    );
+  }
+
   // ==========================================
   // AUTHENTICATED VIEW (LOGGED IN)
   // ==========================================
   Widget _buildLoggedInView() {
     final primaryColor = Theme.of(context).colorScheme.primary;
+
+    if (_tabController.index != 0) {
+      return Column(
+        children: [
+          _buildProfileHeaderCard(),
+          Container(
+            color: Colors.white,
+            child: _buildTabBar(primaryColor),
+          ),
+          Expanded(
+            child: _tabController.index == 1
+                ? const _ProfileLikedTab()
+                : const _ProfileSavedTab(),
+          ),
+        ],
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: ScrollConfiguration(
+        behavior: const ScrollBehavior().copyWith(
+          overscroll: false,
+          physics: const ClampingScrollPhysics(),
+        ),
+        child: NestedScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              if (_pullOffset > 0 || _isRefreshing)
+                SliverToBoxAdapter(
+                  child: AnimatedContainer(
+                    duration: _isRefreshing
+                        ? const Duration(milliseconds: 200)
+                        : Duration.zero,
+                    height: _pullOffset,
+                    color: Colors.white,
+                    alignment: Alignment.center,
+                    child: CustomRefreshBadge(
+                      isRefreshing: _isRefreshing,
+                      percentage: (_pullOffset / 55.0).clamp(0.0, 1.0),
+                      primaryColor: primaryColor,
+                      animController: _refreshAnimController,
+                    ),
+                  ),
+                ),
+              SliverToBoxAdapter(
+                child: _buildProfileHeaderCard(),
+              ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverTabBarDelegate(
+                  _buildTabBar(primaryColor),
+                ),
+              ),
+            ];
+          },
+          body: const _ProfileVideosTab(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeaderCard() {
+    final primaryColor = Theme.of(context).colorScheme.primary;
     final user = AuthService.instance.currentUser;
     final userBio = user?.bio;
     final hasBio = userBio != null && userBio.trim().isNotEmpty;
 
-    return RefreshIndicator(
-      color: primaryColor,
-      onRefresh: () async {
-        await AuthService.instance.fetchUserProfile();
-      },
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
-        ),
-        child: Column(
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header User Profile Card
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top Row: [Name + Handle on the Left] and [Avatar on the Right]
-                Row(
+          // Top Row: [Name + Handle on the Left] and [Avatar on the Right]
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left Column: Tên người dùng to ra + @username + Gender badge
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Left Column: Tên người dùng to ra + @username + Gender badge
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _userName,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Text(
-                                _userHandle,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              if (user?.gender != null &&
-                                  user!.gender!.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.withValues(
-                                      alpha: 0.12,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    user.gender == 'MALE'
-                                        ? 'Nam ♂'
-                                        : (user.gender == 'FEMALE'
-                                              ? 'Nữ ♀'
-                                              : 'Khác'),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: primaryColor,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          // Social stats directly below Username (no box, no following)
-                          Row(
-                            children: [
-                              _buildInlineStatItem('$_videoCount', 'Món ăn'),
-                              const SizedBox(width: 22),
-                              _buildInlineStatItem(
-                                _followerCount >= 1000
-                                    ? '${(_followerCount / 1000).toStringAsFixed(1)}K'
-                                    : '$_followerCount',
-                                'Follower',
-                              ),
-                              const SizedBox(width: 22),
-                              _buildInlineStatItem(
-                                _likeCount >= 1000
-                                    ? '${(_likeCount / 1000).toStringAsFixed(1)}K'
-                                    : '$_likeCount',
-                                'Thích',
-                              ),
-                            ],
-                          ),
-                        ],
+                    Text(
+                      _userName,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        letterSpacing: -0.3,
                       ),
                     ),
-                    const SizedBox(width: 22),
-                    // Right Side: Avatar with verified badge
-                    Stack(
+                    const SizedBox(height: 4),
+                    Row(
                       children: [
-                        Container(
-                          width: 76,
-                          height: 76,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: primaryColor, width: 2.5),
-                            boxShadow: [
-                              BoxShadow(
-                                color: primaryColor.withValues(alpha: 0.2),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ClipOval(
-                            child: (user?.avatar != null && user!.avatar!.isNotEmpty)
-                                ? Image.network(
-                                    user.avatar!,
-                                    width: 76,
-                                    height: 76,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [Colors.orange[300]!, primaryColor],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                      ),
-                                      child: const Center(
-                                        child: Icon(
-                                          Iconsax.user,
-                                          size: 40,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [Colors.orange[300]!, primaryColor],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Icon(
-                                        Iconsax.user,
-                                        size: 40,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
+                        Text(
+                          _userHandle,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: primaryColor,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                        if (user?.gender != null &&
+                            user!.gender!.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
                             ),
-                            child: const Icon(
-                              Iconsax.verify5,
-                              size: 13,
-                              color: Colors.white,
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(
+                                alpha: 0.12,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              user.gender == 'MALE'
+                                  ? 'Nam ♂'
+                                  : (user.gender == 'FEMALE'
+                                        ? 'Nữ ♀'
+                                        : 'Khác'),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Social stats directly below Username (no box, no following)
+                    Row(
+                      children: [
+                        _buildInlineStatItem('$_videoCount', 'Món ăn'),
+                        const SizedBox(width: 22),
+                        _buildInlineStatItem(
+                          _followerCount >= 1000
+                              ? '${(_followerCount / 1000).toStringAsFixed(1)}K'
+                              : '$_followerCount',
+                          'Follower',
+                        ),
+                        const SizedBox(width: 22),
+                        _buildInlineStatItem(
+                          _likeCount >= 1000
+                              ? '${(_likeCount / 1000).toStringAsFixed(1)}K'
+                              : '$_likeCount',
+                          'Thích',
                         ),
                       ],
                     ),
                   ],
                 ),
-
-
-
-                const SizedBox(height: 14),
-
-                // Bio Section: Custom "+ Thêm tiểu sử" button if empty, otherwise display text
-                if (!hasBio)
-                  InkWell(
-                    onTap: _navigateToEditBioScreen,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.orange.withValues(alpha: 0.35),
-                          width: 1.0,
+              ),
+              const SizedBox(width: 22),
+              // Right Side: Avatar with verified badge
+              Stack(
+                children: [
+                  Container(
+                    width: 76,
+                    height: 76,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: primaryColor, width: 2.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Iconsax.add, size: 13, color: primaryColor),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Thêm tiểu sử',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                  )
-                else
-                  GestureDetector(
-                    onTap: _navigateToEditBioScreen,
-                    child: Text(
-                      userBio,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        height: 1.4,
-                        color: Colors.black87,
+                    child: ClipOval(
+                      child: (user?.avatar != null && user!.avatar!.isNotEmpty)
+                          ? Image.network(
+                              user.avatar!,
+                              width: 76,
+                              height: 76,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.orange[300]!, primaryColor],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Iconsax.user,
+                                    size: 40,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.orange[300]!, primaryColor],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Iconsax.user,
+                                  size: 40,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(
+                        Iconsax.verify5,
+                        size: 13,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Tabs for Created, Liked, Saved
-          Container(
-            color: Colors.white,
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                hoverColor: Colors.transparent,
+                ],
               ),
-              child: TabBar(
-                controller: _tabController,
-                dividerColor: Colors.transparent,
-                splashFactory: NoSplash.splashFactory,
-                overlayColor: WidgetStateProperty.all(Colors.transparent),
-                enableFeedback: false,
-                labelColor: primaryColor,
-                unselectedLabelColor: Colors.grey[500],
-                indicatorColor: primaryColor,
-                indicatorSize: TabBarIndicatorSize.tab,
-              tabs: const [
-                Tab(icon: Icon(Iconsax.video_play, size: 16)),
-                Tab(icon: Icon(Iconsax.heart, size: 16)),
-                Tab(icon: Icon(Iconsax.bookmark, size: 16)),
-              ],
-            ),
-            ),
+            ],
           ),
 
-          SizedBox(
-            height: 380,
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildVideoGridTab(),
-                _buildLikedGridTab(),
-                _buildSavedGridTab(),
-              ],
+          const SizedBox(height: 14),
+
+          // Bio Section: Custom "+ Thêm tiểu sử" button if empty, otherwise display text
+          if (!hasBio)
+            InkWell(
+              onTap: _navigateToEditBioScreen,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.35),
+                    width: 1.0,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Iconsax.add, size: 13, color: primaryColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Thêm tiểu sử',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: _navigateToEditBioScreen,
+              child: Text(
+                userBio,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  height: 1.4,
+                  color: Colors.black87,
+                ),
+              ),
             ),
-          ),
         ],
-      ),
       ),
     );
   }
@@ -941,118 +1197,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildVideoGridTab() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: 6,
-      itemBuilder: (context, index) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.orange[(index + 1) * 100 % 400 + 200]!,
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                const Center(
-                  child: Icon(
-                    Iconsax.video_play,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-                Positioned(
-                  bottom: 6,
-                  left: 6,
-                  child: Row(
-                    children: [
-                      const Icon(Iconsax.play, size: 12, color: Colors.white),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${(index + 1) * 320}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          shadows: [Shadow(blurRadius: 4, color: Colors.black)],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLikedGridTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Iconsax.heart, size: 48, color: Colors.grey[400]),
-          const SizedBox(height: 12),
-          Text(
-            'Các video đã thích',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Chỉ bạn mới có thể nhìn thấy mục này',
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSavedGridTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Iconsax.bookmark, size: 48, color: Colors.grey[400]),
-          const SizedBox(height: 12),
-          Text(
-            'Chưa có công thức nào được lưu',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Nhấn biểu tượng lưu trên video để xem lại tại đây',
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1451,4 +1595,348 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     );
   }
+
+  Widget _buildOptionsPage(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      child: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Section 1: Công cụ cá nhân
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
+                child: Text(
+                  'Công cụ cá nhân',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              _buildDrawerMenuItem(
+                icon: Iconsax.activity,
+                title: 'Trung tâm hoạt động',
+                onTap: () {
+                  _closeMenu();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const ActivityScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              // Section 2: Cài đặt
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
+                child: Text(
+                  'Cài đặt',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              _buildDrawerMenuItem(
+                icon: Iconsax.setting_2,
+                title: 'Cài đặt và quyền riêng tư',
+                onTap: () {
+                  _closeMenu();
+                  _navigateToSettings();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerMenuItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: Colors.black87),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Colors.grey[400],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 }
+
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+
+  _SliverTabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: Colors.white,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
+    return false;
+  }
+}
+
+class _ProfileVideosTab extends StatefulWidget {
+  const _ProfileVideosTab();
+
+  @override
+  State<_ProfileVideosTab> createState() => _ProfileVideosTabState();
+}
+
+class _ProfileVideosTabState extends State<_ProfileVideosTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    final mockVideoViews = [
+      '12.5K', '8.2K', '3.1K', '940', '15.8K', '6.4K',
+      '2.7K', '18.3K', '5.5K', '1.1K', '24.9K', '7.8K',
+      '4.2K', '11.0K', '9.6K', '32.1K', '14.3K', '6.9K',
+      '880', '19.4K', '5.1K', '2.3K', '16.7K', '8.9K',
+      '1.5K', '27.4K', '10.2K', '4.8K', '13.6K', '7.3K',
+      '3.9K', '21.0K', '8.5K', '1.9K', '17.8K', '11.4K',
+    ];
+
+    return Builder(
+      builder: (context) {
+        return CustomScrollView(
+          key: const PageStorageKey<String>('profile_tab_videos'),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.all(8),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 6,
+                  mainAxisSpacing: 6,
+                  childAspectRatio: 0.75,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final views = mockVideoViews[index % mockVideoViews.length];
+
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F2F5),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFF3F4F6),
+                              Color(0xFFE5E7EB),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          border: Border.all(
+                            color: const Color(0xFFE5E7EB),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            const Center(
+                              child: Icon(
+                                Iconsax.video_play,
+                                color: Color(0xFF9CA3AF),
+                                size: 28,
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 6,
+                              left: 6,
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Iconsax.play,
+                                    size: 10.5,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    views,
+                                    style: const TextStyle(
+                                      color: Color(0xFF4B5563),
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  childCount: 36,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ProfileLikedTab extends StatefulWidget {
+  const _ProfileLikedTab();
+
+  @override
+  State<_ProfileLikedTab> createState() => _ProfileLikedTabState();
+}
+
+class _ProfileLikedTabState extends State<_ProfileLikedTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    return Container(
+      color: Colors.white,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 32,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Iconsax.heart, size: 48, color: Colors.grey.shade400),
+          const SizedBox(height: 12),
+          Text(
+            'Các video đã thích',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Chỉ bạn mới có thể nhìn thấy mục này',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSavedTab extends StatefulWidget {
+  const _ProfileSavedTab();
+
+  @override
+  State<_ProfileSavedTab> createState() => _ProfileSavedTabState();
+}
+
+class _ProfileSavedTabState extends State<_ProfileSavedTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    return Container(
+      color: Colors.white,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 32,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Iconsax.bookmark, size: 48, color: Colors.grey.shade400),
+          const SizedBox(height: 12),
+          Text(
+            'Chưa có công thức nào được lưu',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Nhấn biểu tượng lưu trên video để xem lại tại đây',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+

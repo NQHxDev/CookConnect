@@ -86,7 +86,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify user is logged in
-    expect(find.text('Chef Linh Đan'), findsOneWidget);
+    expect(find.text('Chef Linh Đan'), findsWidgets);
     expect(find.byIcon(Iconsax.edit_2), findsOneWidget);
     expect(find.text('Thêm tiểu sử'), findsOneWidget);
 

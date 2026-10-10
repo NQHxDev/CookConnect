@@ -20,6 +20,13 @@ class CookConnect extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        fontFamily: 'TikTokSans',
+        textTheme: ThemeData.light().textTheme.apply(
+          fontFamily: 'TikTokSans',
+        ),
+        primaryTextTheme: ThemeData.light().primaryTextTheme.apply(
+          fontFamily: 'TikTokSans',
+        ),
         useMaterial3: true,
       ),
       home: const MainScreen(),
