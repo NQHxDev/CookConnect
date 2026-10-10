@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cookconnect/screens/library_screen.dart';
-import 'package:cookconnect/models/recipe.dart';
-import 'package:cookconnect/widgets/recipe_detail_sheet.dart';
+import 'package:cookconnect/features/recipe/presentation/pages/library_screen.dart';
+import 'package:cookconnect/features/recipe/data/models/recipe.dart';
+import 'package:cookconnect/features/recipe/presentation/widgets/recipe_detail_sheet.dart';
 
 void main() {
   testWidgets('LibraryScreen renders tabs, search and handles interaction', (

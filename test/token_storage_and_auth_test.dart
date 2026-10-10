@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:cookconnect/services/api_service.dart';
-import 'package:cookconnect/services/auth_service.dart';
-import 'package:cookconnect/services/token_storage_service.dart';
+import 'package:cookconnect/core/network/api_service.dart';
+import 'package:cookconnect/features/auth/data/services/auth_service.dart';
+import 'package:cookconnect/core/storage/token_storage_service.dart';
 
 String createMockJwt({required int expSeconds}) {
   final header = base64Url.encode(utf8.encode('{"alg":"HS256","typ":"JWT"}'));

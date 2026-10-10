@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:cookconnect/screens/chat_screen.dart';
-import 'package:cookconnect/screens/chat_detail_screen.dart';
-import 'package:cookconnect/screens/activity_screen.dart';
-import 'package:cookconnect/screens/system_notification_screen.dart';
+import 'package:cookconnect/features/chat/presentation/pages/chat_screen.dart';
+import 'package:cookconnect/features/chat/presentation/pages/chat_detail_screen.dart';
+import 'package:cookconnect/features/activity/presentation/pages/activity_screen.dart';
+import 'package:cookconnect/features/notification/presentation/pages/system_notification_screen.dart';
 
 void main() {
   testWidgets('ChatScreen renders header, stories list with "Tạo tin" and friends', (WidgetTester tester) async {

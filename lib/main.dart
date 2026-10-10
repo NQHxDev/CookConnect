@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/main_screen.dart';
-import 'services/auth_service.dart';
+import 'package:cookconnect/features/main/presentation/pages/main_screen.dart';
+import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

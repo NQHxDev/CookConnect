@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:cookconnect/services/api_service.dart';
-import 'package:cookconnect/services/auth_service.dart';
-import 'package:cookconnect/services/token_storage_service.dart';
-import 'package:cookconnect/screens/register/register_email_screen.dart';
-import 'package:cookconnect/screens/register/register_otp_screen.dart';
-import 'package:cookconnect/screens/register/register_password_screen.dart';
+import 'package:cookconnect/core/network/api_service.dart';
+import 'package:cookconnect/features/auth/data/services/auth_service.dart';
+import 'package:cookconnect/core/storage/token_storage_service.dart';
+import 'package:cookconnect/features/auth/presentation/pages/register_email_screen.dart';
+import 'package:cookconnect/features/auth/presentation/pages/register_otp_screen.dart';
+import 'package:cookconnect/features/auth/presentation/pages/register_password_screen.dart';
 
 void main() {
   group('RegisterEmailScreen Tests', () {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cookconnect/services/auth_service.dart';
-import 'package:cookconnect/widgets/profile_setup_dialog.dart';
+import 'package:cookconnect/features/auth/data/services/auth_service.dart';
+import 'package:cookconnect/features/profile/presentation/widgets/profile_setup_dialog.dart';
 
 void main() {
   setUp(() {

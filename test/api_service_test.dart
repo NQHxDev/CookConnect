@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:cookconnect/config/api_config.dart';
-import 'package:cookconnect/services/api_service.dart';
+import 'package:cookconnect/core/config/api_config.dart';
+import 'package:cookconnect/core/network/api_service.dart';
+import 'package:cookconnect/core/constants/api_response_codes.dart';
+import 'package:cookconnect/core/i18n/api_i18n.dart';
 
 void main() {
   tearDown(() {
@@ -545,11 +547,12 @@ void main() {
       expect(result.user?.bio, 'My new bio');
     });
 
-    test('uploadAvatar uploads image bytes via multipart request', () async {
+    test('uploadAvatar uploads image bytes via multipart request and sets proper contentType for webp', () async {
       final mockClient = MockClient((request) async {
         expect(request.method, 'POST');
         expect(request.url.path, '/api/v1/users/me/avatar');
         expect(request.headers['Authorization'], 'Bearer valid-jwt-token');
+        expect(request.body.toLowerCase().contains('content-type: image/webp'), isTrue);
 
         return http.Response(
           '''{
@@ -557,11 +560,11 @@ void main() {
             "statusCode": 200,
             "message": "USERS.UPLOAD_AVATAR_SUCCESS",
             "data": {
-              "avatarUrl": "https://res.cloudinary.com/demo/image/upload/avatar_123.jpg",
+              "avatarUrl": "https://res.cloudinary.com/demo/image/upload/avatar_123.webp",
               "user": {
                 "id": "01a0",
                 "email": "test@test.com",
-                "avatar": "https://res.cloudinary.com/demo/image/upload/avatar_123.jpg"
+                "avatar": "https://res.cloudinary.com/demo/image/upload/avatar_123.webp"
               }
             }
           }''',
@@ -574,11 +577,32 @@ void main() {
       final result = await service.uploadAvatar(
         accessToken: 'valid-jwt-token',
         fileBytes: [1, 2, 3, 4],
-        filename: 'avatar.png',
+        filename: 'avatar.webp',
       );
 
       expect(result.isSuccess, isTrue);
-      expect(result.user?.avatar, 'https://res.cloudinary.com/demo/image/upload/avatar_123.jpg');
+      expect(result.user?.avatar, 'https://res.cloudinary.com/demo/image/upload/avatar_123.webp');
+    });
+
+    test('uploadAvatar parses explicit mimeType correctly', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.body.toLowerCase().contains('content-type: image/webp'), isTrue);
+        return http.Response(
+          '''{"success": true, "statusCode": 200, "message": "USERS.UPLOAD_AVATAR_SUCCESS", "data": {"avatarUrl": "https://example.com/a.webp"}}''',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final service = ApiService(client: mockClient);
+      final result = await service.uploadAvatar(
+        accessToken: 'valid-jwt-token',
+        fileBytes: [1, 2, 3],
+        filename: 'custom_blob',
+        mimeType: 'image/webp',
+      );
+
+      expect(result.isSuccess, isTrue);
     });
 
     test('uploadAvatar correctly translates USER.INVALID_FILE_TYPE to friendly message', () async {
@@ -605,7 +629,7 @@ void main() {
       );
 
       expect(result.isSuccess, isFalse);
-      expect(result.error, 'Định dạng ảnh không hợp lệ!');
+      expect(result.error, ApiI18n.translate(UserApiErrorCode.invalidFileType));
     });
 
     test('uploadAvatar correctly translates USER.FILE_REQUIRED to friendly message', () async {
@@ -631,7 +655,7 @@ void main() {
       );
 
       expect(result.isSuccess, isFalse);
-      expect(result.error, 'Vui lòng chọn tệp hình ảnh để tải lên.');
+      expect(result.error, ApiI18n.translate(UserApiErrorCode.fileRequired));
     });
 
     test('uploadAvatar correctly handles 401 Unauthorized and USER.USER_NOT_FOUND', () async {
@@ -657,7 +681,7 @@ void main() {
       );
 
       expect(result.isSuccess, isFalse);
-      expect(result.error, 'Không tìm thấy thông tin người dùng.');
+      expect(result.error, ApiI18n.translate(UserApiErrorCode.userNotFound));
     });
 
     test('logout calls logout endpoint successfully', () async {
