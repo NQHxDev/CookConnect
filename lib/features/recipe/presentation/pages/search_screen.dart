@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:cookconnect/core/constants/api_codes/ui_i18n_keys.dart';
+import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'package:cookconnect/features/recipe/data/models/recipe.dart';
 import 'package:cookconnect/features/recipe/data/services/recipe_data_service.dart';
 import 'package:cookconnect/features/recipe/presentation/widgets/recipe_detail_sheet.dart';
@@ -98,16 +100,21 @@ class _SearchScreenState extends State<SearchScreen> {
     final filteredRecipes = _getFilteredRecipes();
     final isSearching = _searchQuery.trim().isNotEmpty;
 
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      behavior: HitTestBehavior.translucent,
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: _buildAppBar(),
-        body: isSearching
-            ? _buildSearchResults(filteredRecipes)
-            : _buildDiscoverContent(),
-      ),
+    return ValueListenableBuilder<String>(
+      valueListenable: ApiI18n.languageNotifier,
+      builder: (context, currentLanguage, child) {
+        return GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            appBar: _buildAppBar(),
+            body: isSearching
+                ? _buildSearchResults(filteredRecipes)
+                : _buildDiscoverContent(),
+          ),
+        );
+      },
     );
   }
 
@@ -165,7 +172,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     },
                   )
                 : null,
-            hintText: 'Tìm món ăn, nguyên liệu, đầu bếp...',
+            hintText: ApiI18n.text(UiI18nKeys.searchHint),
             hintStyle: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade500,
@@ -195,162 +202,162 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.only(top: 4),
-        children: [
-          // Recent searches compact vertical list
-          if (_recentSearches.isNotEmpty) ...[
-            ...displayedRecent.map((term) => _buildRecentSearchItem(term)),
-            if (_recentSearches.length > 3 && !_isRecentExpanded)
-              InkWell(
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                  setState(() {
-                    _isRecentExpanded = true;
-                  });
-                },
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Xem thêm',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              InkWell(
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                  setState(() {
-                    _recentSearches.clear();
-                    _isRecentExpanded = false;
-                  });
-                },
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Center(
-                    child: Text(
-                      'Xóa tất cả',
-                      style: TextStyle(
+      children: [
+        // Recent searches compact vertical list
+        if (_recentSearches.isNotEmpty) ...[
+          ...displayedRecent.map((term) => _buildRecentSearchItem(term)),
+          if (_recentSearches.length > 3 && !_isRecentExpanded)
+            InkWell(
+              onTap: () {
+                FocusScope.of(context).unfocus();
+                setState(() {
+                  _isRecentExpanded = true;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      ApiI18n.text(UiI18nKeys.searchSeeMore),
+                      style: const TextStyle(
                         fontSize: 13,
                         color: Colors.grey,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
+                  ],
                 ),
               ),
-            const SizedBox(height: 4),
-            const Divider(height: 16, thickness: 6, color: Color(0xFFF9FAFB)),
-          ],
-
-          // Trending keywords (No icon, bullet points, top 3 in red, larger font size)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 14, 16, 12),
-            child: Text(
-              'Tìm kiếm phổ biến',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisExtent: 36,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 2,
-              ),
-              itemCount: _trendingKeywords.length,
-              itemBuilder: (context, index) {
-                final keyword = _trendingKeywords[index];
-                final isHot = index < 3;
-                final textColor =
-                    isHot ? const Color(0xFFEF4444) : const Color(0xFF161823);
-                final bulletColor =
-                    isHot ? const Color(0xFFEF4444) : Colors.grey.shade400;
-
-                return InkWell(
-                  onTap: () => _applyKeyword(keyword),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Row(
-                    children: [
-                      Text(
-                        '•',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: bulletColor,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          keyword,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                                isHot ? FontWeight.w600 : FontWeight.w500,
-                            color: textColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
+            )
+          else
+            InkWell(
+              onTap: () {
+                FocusScope.of(context).unfocus();
+                setState(() {
+                  _recentSearches.clear();
+                  _isRecentExpanded = false;
+                });
               },
-            ),
-          ),
-          const SizedBox(height: 14),
-          const Divider(height: 16, thickness: 6, color: Color(0xFFF9FAFB)),
-
-          // Featured / Recommended recipes (Larger font size)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 14, 16, 14),
-            child: Text(
-              'Gợi ý món hôm nay',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Center(
+                  child: Text(
+                    ApiI18n.text(UiI18nKeys.searchClearAll),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: RecipeDataService.instance.allRecipes.take(4).map(
-                (recipe) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildRecipeCard(recipe),
-                ),
-              ).toList(),
+          const SizedBox(height: 4),
+          const Divider(height: 16, thickness: 6, color: Color(0xFFF9FAFB)),
+        ],
+
+        // Trending keywords (No icon, bullet points, top 3 in red, larger font size)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          child: Text(
+            ApiI18n.text(UiI18nKeys.searchTrending),
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 20),
-        ],
-      );
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 36,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 2,
+            ),
+            itemCount: _trendingKeywords.length,
+            itemBuilder: (context, index) {
+              final keyword = _trendingKeywords[index];
+              final isHot = index < 3;
+              final textColor =
+                  isHot ? const Color(0xFFEF4444) : const Color(0xFF161823);
+              final bulletColor =
+                  isHot ? const Color(0xFFEF4444) : Colors.grey.shade400;
+
+              return InkWell(
+                onTap: () => _applyKeyword(keyword),
+                borderRadius: BorderRadius.circular(6),
+                child: Row(
+                  children: [
+                    Text(
+                      '•',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: bulletColor,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        keyword,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight:
+                              isHot ? FontWeight.w600 : FontWeight.w500,
+                          color: textColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Divider(height: 16, thickness: 6, color: Color(0xFFF9FAFB)),
+
+        // Featured / Recommended recipes (Larger font size)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Text(
+            ApiI18n.text(UiI18nKeys.searchTodaySuggestions),
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: RecipeDataService.instance.allRecipes.take(4).map(
+              (recipe) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildRecipeCard(recipe),
+              ),
+            ).toList(),
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
   }
 
   Widget _buildRecentSearchItem(String term) {
@@ -421,9 +428,9 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Không tìm thấy món ăn nào',
-                style: TextStyle(
+              Text(
+                ApiI18n.text(UiI18nKeys.searchNoResultsTitle),
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
@@ -431,7 +438,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Hãy thử tìm với từ khoá khác hoặc xem danh sách gợi ý',
+                ApiI18n.text(UiI18nKeys.searchNoResultsSubtitle),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
@@ -444,13 +451,16 @@ class _SearchScreenState extends State<SearchScreen> {
       );
     }
 
+    final countText = ApiI18n.text(UiI18nKeys.searchResultsCount)
+        .replaceAll('{count}', results.length.toString());
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
           child: Text(
-            'Tìm thấy ${results.length} món ăn',
+            countText,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -478,6 +488,8 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildRecipeCard(Recipe recipe) {
+    final minuteSuffix = ApiI18n.text(UiI18nKeys.searchMinuteShort);
+
     return InkWell(
       onTap: () {
         RecipeDetailSheet.show(
@@ -584,7 +596,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                       const SizedBox(width: 2),
                       Text(
-                        '${recipe.cookTimeMinutes}p',
+                        '${recipe.cookTimeMinutes}$minuteSuffix',
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey.shade600,

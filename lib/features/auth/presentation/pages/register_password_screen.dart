@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cookconnect/core/network/api_service.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
-import 'package:cookconnect/features/profile/presentation/widgets/profile_setup_dialog.dart';
+import 'package:cookconnect/features/profile/presentation/pages/profile_setup_screen.dart';
 
 class RegisterPasswordScreen extends StatefulWidget {
   final String email;
@@ -37,14 +37,39 @@ class _RegisterPasswordScreenState extends State<RegisterPasswordScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  bool get _hasMinLength => _passwordController.text.length >= 6;
+  bool get _hasUppercase => _passwordController.text.contains(RegExp(r'[A-Z]'));
+  bool get _hasLowercase => _passwordController.text.contains(RegExp(r'[a-z]'));
+  bool get _hasDigit => _passwordController.text.contains(RegExp(r'[0-9]'));
+  bool get _hasLettersAndNumbers => _hasUppercase && _hasLowercase && _hasDigit;
+  bool get _hasSpecialChar => _passwordController.text.contains(RegExp(r'[^a-zA-Z0-9]'));
+  bool get _isPasswordValid =>
+      _hasMinLength &&
+      _hasLettersAndNumbers &&
+      _hasSpecialChar;
+
+  bool get _isConfirmValid =>
+      _confirmPasswordController.text.isNotEmpty &&
+      _confirmPasswordController.text == _passwordController.text;
+
+  bool get _isFormValid => _isPasswordValid && _isConfirmValid;
+
   @override
   void initState() {
     super.initState();
     _apiService = widget.apiService ?? ApiService();
+    _passwordController.addListener(_onTextChanged);
+    _confirmPasswordController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _passwordController.removeListener(_onTextChanged);
+    _confirmPasswordController.removeListener(_onTextChanged);
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _passwordFocusNode.dispose();
@@ -143,17 +168,13 @@ class _RegisterPasswordScreenState extends State<RegisterPasswordScreen> {
           ),
         );
 
-        // Pop until first route
-        final navigator = Navigator.of(context);
-        navigator.popUntil((route) => route.isFirst);
-
-        // Prompt user to set up profile picture and bio
-        Future.microtask(() {
-          final rootContext = navigator.context;
-          if (rootContext.mounted) {
-            ProfileSetupDialog.show(rootContext, isFirstTime: true);
-          }
-        });
+        // Navigate to mandatory full-screen profile setup
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => const ProfileSetupScreen(),
+          ),
+          (route) => false,
+        );
       } else {
         setState(() {
           _errorMessage = result.error ?? 'Đăng ký tài khoản thất bại. Vui lòng thử lại.';
@@ -266,6 +287,7 @@ class _RegisterPasswordScreenState extends State<RegisterPasswordScreen> {
                     focusNode: _passwordFocusNode,
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.next,
+                    onChanged: (_) => setState(() {}),
                     onFieldSubmitted: (_) => _confirmPasswordFocusNode.requestFocus(),
                     validator: (val) {
                       if (val == null || val.isEmpty) {
@@ -312,6 +334,11 @@ class _RegisterPasswordScreenState extends State<RegisterPasswordScreen> {
                     ),
                   ),
 
+                  const SizedBox(height: 14),
+
+                  // Password policy checklist
+                  _buildPasswordRequirementsCard(),
+
                   const SizedBox(height: 18),
 
                   // Confirm Password Field
@@ -329,6 +356,7 @@ class _RegisterPasswordScreenState extends State<RegisterPasswordScreen> {
                     focusNode: _confirmPasswordFocusNode,
                     obscureText: _obscureConfirmPassword,
                     textInputAction: TextInputAction.done,
+                    onChanged: (_) => setState(() {}),
                     onFieldSubmitted: (_) => _submitRegister(),
                     validator: (val) {
                       if (val == null || val.isEmpty) {
@@ -408,10 +436,12 @@ class _RegisterPasswordScreenState extends State<RegisterPasswordScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submitRegister,
+                      onPressed: (_isLoading || !_isFormValid) ? null : _submitRegister,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor: primaryColor.withValues(alpha: 0.45),
+                        disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -451,5 +481,69 @@ class _RegisterPasswordScreenState extends State<RegisterPasswordScreen> {
     );
   }
 
+
+  Widget _buildPasswordRequirementsCard() {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _passwordController,
+      builder: (context, _, child) {
+        return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Yêu cầu mật khẩu:',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildRequirementItem('Tối thiểu 6 ký tự', _hasMinLength),
+          const SizedBox(height: 6),
+          _buildRequirementItem(
+            'Có chữ hoa, chữ thường và chữ số',
+            _hasLettersAndNumbers,
+          ),
+          const SizedBox(height: 6),
+          _buildRequirementItem(
+            'Có ký tự đặc biệt (!@#\$%^&*...)',
+            _hasSpecialChar,
+          ),
+        ],
+      ),
+    );
+      },
+    );
+  }
+
+  Widget _buildRequirementItem(String label, bool isMet) {
+    return Row(
+      children: [
+        Icon(
+          Icons.check,
+          size: 16,
+          color: isMet ? const Color(0xFF10B981) : Colors.grey[400],
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              color: isMet ? const Color(0xFF1F2937) : Colors.grey[500],
+              fontWeight: isMet ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
 }

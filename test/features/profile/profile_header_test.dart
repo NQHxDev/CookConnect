@@ -72,4 +72,37 @@ void main() {
       expect(animOpacity.opacity, 0.0);
     },
   );
+
+
+  testWidgets(
+    'ProfileScreen does not display gender badge even when user has gender',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ProfileScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nữ ♀'), findsNothing);
+      expect(find.text('Nam ♂'), findsNothing);
+      expect(find.text('Khác'), findsNothing);
+    },
+  );
+
+
+  testWidgets(
+    'ProfileScreen displays Công thức stat label and no Món ăn stat label',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ProfileScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Công thức'), findsOneWidget);
+      expect(find.text('Món ăn'), findsNothing);
+    },
+  );
 }

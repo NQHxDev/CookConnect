@@ -63,7 +63,7 @@ void main() {
       await tester.tap(find.text('Thông tin tài khoản'));
       await tester.pumpAndSettle();
       expect(find.byType(AccountInformationScreen), findsOneWidget);
-      expect(find.text('Thông tin tài khoản'), findsNWidgets(1));
+      expect(find.text('Thông tin tài khoản'), findsNWidgets(2));
       await tester.tap(find.byIcon(Iconsax.arrow_left));
       await tester.pumpAndSettle();
       expect(find.byType(AccountScreen), findsOneWidget);

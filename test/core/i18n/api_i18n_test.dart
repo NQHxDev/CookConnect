@@ -40,6 +40,25 @@ void main() {
       );
     });
 
+    test('Translates duplicate email error code correctly in both Vietnamese and English', () {
+      expect(
+        ApiI18n.translate(ApiErrorCode.authEmailAlreadyExists),
+        'Email đã được đăng ký trong hệ thống',
+      );
+      expect(
+        ApiI18n.translate(ApiErrorCode.authEmailAlreadyExists, language: 'en'),
+        'Email is already registered in the system.',
+      );
+      expect(
+        ApiI18n.translate(ApiErrorCode.userAlreadyExists),
+        'Email đã được đăng ký trong hệ thống',
+      );
+      expect(
+        ApiI18n.translate(ApiErrorCode.userAlreadyExists, language: 'en'),
+        'Email is already registered in the system.',
+      );
+    });
+
     test('Translates auth error codes correctly', () {
       expect(
         ApiI18n.translate(ApiErrorCode.authInvalidCredentials),

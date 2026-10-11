@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:cookconnect/core/constants/api_codes/ui_i18n_keys.dart';
+import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'package:cookconnect/features/recipe/presentation/pages/home_screen.dart';
 import 'package:cookconnect/features/recipe/presentation/pages/library_screen.dart';
 import 'package:cookconnect/features/recipe/presentation/pages/upload_screen.dart';
@@ -34,60 +36,65 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: screens),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(
-              color: Colors.grey.withValues(alpha: 0.18),
-              width: 0.8,
-            ),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              spreadRadius: 0,
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: 50,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  icon: Iconsax.home_2,
-                  activeIcon: Iconsax.home_25,
-                  label: 'Trang chủ',
-                  index: 0,
+      bottomNavigationBar: ValueListenableBuilder<String>(
+        valueListenable: ApiI18n.languageNotifier,
+        builder: (context, currentLanguage, child) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(
+                  color: Colors.grey.withValues(alpha: 0.18),
+                  width: 0.8,
                 ),
-                _buildNavItem(
-                  icon: Iconsax.layer,
-                  activeIcon: Iconsax.layer5,
-                  label: 'Thư viện',
-                  index: 1,
-                ),
-                _buildAddButton(),
-                _buildNavItem(
-                  icon: Iconsax.sms,
-                  activeIcon: Iconsax.sms5,
-                  label: 'Hộp thư',
-                  index: 3,
-                ),
-                _buildNavItem(
-                  icon: Iconsax.profile_circle,
-                  activeIcon: Iconsax.profile_circle5,
-                  label: 'Cá nhân',
-                  index: 4,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  spreadRadius: 0,
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
                 ),
               ],
             ),
-          ),
-        ),
+            child: SafeArea(
+              top: false,
+              child: SizedBox(
+                height: 50,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(
+                      icon: Iconsax.home_2,
+                      activeIcon: Iconsax.home_25,
+                      label: ApiI18n.text(UiI18nKeys.navHome),
+                      index: 0,
+                    ),
+                    _buildNavItem(
+                      icon: Iconsax.layer,
+                      activeIcon: Iconsax.layer5,
+                      label: ApiI18n.text(UiI18nKeys.navLibrary),
+                      index: 1,
+                    ),
+                    _buildAddButton(),
+                    _buildNavItem(
+                      icon: Iconsax.sms,
+                      activeIcon: Iconsax.sms5,
+                      label: ApiI18n.text(UiI18nKeys.navInbox),
+                      index: 3,
+                    ),
+                    _buildNavItem(
+                      icon: Iconsax.profile_circle,
+                      activeIcon: Iconsax.profile_circle5,
+                      label: ApiI18n.text(UiI18nKeys.navProfile),
+                      index: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

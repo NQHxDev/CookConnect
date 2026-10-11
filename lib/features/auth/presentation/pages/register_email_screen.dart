@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cookconnect/core/network/api_service.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
-import 'package:cookconnect/features/profile/presentation/widgets/profile_setup_dialog.dart';
+import 'package:cookconnect/features/profile/presentation/pages/profile_setup_screen.dart';
 import 'package:cookconnect/features/auth/presentation/pages/register_otp_screen.dart';
 
 typedef RegisterScreen = RegisterEmailScreen;
@@ -142,24 +142,19 @@ class _RegisterEmailScreenState extends State<RegisterEmailScreen> with SingleTi
         ),
       );
 
-      final navigator = Navigator.of(context);
-      navigator.popUntil((route) => route.isFirst);
-
-      Future.microtask(() {
-        final rootContext = navigator.context;
-        if (rootContext.mounted) {
-          ProfileSetupDialog.show(rootContext, isFirstTime: true);
-        }
-      });
+      // Navigate to mandatory full-screen profile setup
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const ProfileSetupScreen(),
+        ),
+        (route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isPhoneLoading = false;
         _phoneErrorMessage = 'Lỗi kết nối: ${e.toString()}';
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_phoneErrorMessage!), backgroundColor: Colors.red[700], behavior: SnackBarBehavior.floating));
     }
   }
 
@@ -198,19 +193,6 @@ class _RegisterEmailScreenState extends State<RegisterEmailScreen> with SingleTi
         setState(() {
           _emailErrorMessage = result.error ?? 'Không thể gửi mã OTP. Vui lòng thử lại.';
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Iconsax.warning_2, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text(_emailErrorMessage!, style: const TextStyle(fontSize: 13.5))),
-              ],
-            ),
-            backgroundColor: Colors.red[700],
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -218,9 +200,6 @@ class _RegisterEmailScreenState extends State<RegisterEmailScreen> with SingleTi
         _isEmailLoading = false;
         _emailErrorMessage = 'Lỗi kết nối: ${e.toString()}';
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_emailErrorMessage!), backgroundColor: Colors.red[700], behavior: SnackBarBehavior.floating));
     }
   }
 

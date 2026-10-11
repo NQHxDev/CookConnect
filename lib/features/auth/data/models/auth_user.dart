@@ -1,5 +1,8 @@
 class AuthUser {
   final String id;
+  final String? accountId;
+  final String? userId;
+  final String? userProfileId;
   final String email;
   final String fullName;
   final String? username;
@@ -17,6 +20,9 @@ class AuthUser {
 
   AuthUser({
     required this.id,
+    this.accountId,
+    this.userId,
+    this.userProfileId,
     required this.email,
     required this.fullName,
     this.username,
@@ -44,18 +50,55 @@ class AuthUser {
         ? json['stats'] as Map<String, dynamic>
         : null;
 
-    // 3. User Identifier (supports id, userId, sub)
-    final id = json['id']?.toString() ??
-        json['userId']?.toString() ??
-        json['sub']?.toString() ??
-        '';
+    // 3. User Profile Identifier (primary key of user_profiles table)
+    final userProfileId = profile?['id']?.toString() ??
+        json['userProfileId']?.toString();
 
-    // 4. Email address
+    // 4. Disambiguate accountId vs userId
+    // - Auth microservice (/api/v1/auth/*): returns Account { id, email, ... } -> accountId
+    // - User microservice (/api/v1/users/*): returns User { id (User PK), userId (Account FK), profile, stats }
+    // - Storage cache (toJson): persists accountId, userId, userProfileId explicitly
+    final explicitAccountId = json['accountId']?.toString();
+    final explicitUserId = json['userId']?.toString();
+    final rawId = json['id']?.toString();
+    final rawSub = json['sub']?.toString();
+
+    String? resolvedAccountId;
+    String? resolvedUserId;
+
+    if (explicitAccountId != null && explicitAccountId.isNotEmpty) {
+      resolvedAccountId = explicitAccountId;
+      resolvedUserId = explicitUserId ?? rawId;
+    } else if (profile != null ||
+        stats != null ||
+        (rawId != null &&
+            explicitUserId != null &&
+            rawId.isNotEmpty &&
+            explicitUserId.isNotEmpty &&
+            rawId != explicitUserId)) {
+      // User microservice structure: id = User PK (userId), userId = Account FK (accountId)
+      resolvedUserId = rawId;
+      resolvedAccountId = explicitUserId ?? rawSub;
+    } else {
+      // Auth microservice structure: id/sub = Account PK (accountId)
+      resolvedAccountId = rawId ?? rawSub;
+      resolvedUserId = (explicitUserId != null && explicitUserId != resolvedAccountId)
+          ? explicitUserId
+          : null;
+    }
+
+    final id = (resolvedUserId != null && resolvedUserId.isNotEmpty)
+        ? resolvedUserId
+        : ((resolvedAccountId != null && resolvedAccountId.isNotEmpty)
+            ? resolvedAccountId
+            : (rawId ?? ''));
+
+    // 5. Email address
     final email = json['email']?.toString() ??
         profile?['email']?.toString() ??
         '';
 
-    // 5. Display Name / Full Name
+    // 6. Display Name / Full Name
     final rawName = json['fullName'] ??
         json['displayName'] ??
         json['name'] ??
@@ -71,25 +114,27 @@ class AuthUser {
                 ? email.split('@').first
                 : ''));
 
-    // 6. Username
+    // 7. Username
     final username = json['username']?.toString() ??
         profile?['username']?.toString();
 
-    // 7. Profile details
+    // 8. Profile details
     final gender = json['gender']?.toString() ?? profile?['gender']?.toString();
     final dateOfBirth = json['dateOfBirth']?.toString() ??
         profile?['dateOfBirth']?.toString();
     final bio = json['bio']?.toString() ?? profile?['bio']?.toString();
     final avatar = json['avatar']?.toString() ?? profile?['avatar']?.toString();
 
-    // 8. Roles
+    // 9. Roles
     final roles = (json['roles'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
         const ['USER'];
 
-    // 9. Stats
+    // 10. Stats
     final videoCount = (json['videoCount'] as num?)?.toInt() ??
+        (stats?['recipesCount'] as num?)?.toInt() ??
+        (json['recipesCount'] as num?)?.toInt() ??
         (stats?['postsCount'] as num?)?.toInt() ??
         (json['postsCount'] as num?)?.toInt() ??
         0;
@@ -105,11 +150,16 @@ class AuthUser {
         0;
 
     final likeCount = (json['likeCount'] as num?)?.toInt() ??
+        (stats?['likesCount'] as num?)?.toInt() ??
         (stats?['likeCount'] as num?)?.toInt() ??
+        (json['likesCount'] as num?)?.toInt() ??
         0;
 
     return AuthUser(
       id: id,
+      accountId: resolvedAccountId,
+      userId: resolvedUserId,
+      userProfileId: userProfileId,
       email: email,
       fullName: name,
       username: username,
@@ -129,6 +179,9 @@ class AuthUser {
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    if (accountId != null) 'accountId': accountId,
+    if (userId != null) 'userId': userId,
+    if (userProfileId != null) 'userProfileId': userProfileId,
     'email': email,
     'fullName': fullName,
     'displayName': fullName,
@@ -148,6 +201,9 @@ class AuthUser {
 
   AuthUser copyWith({
     String? id,
+    String? accountId,
+    String? userId,
+    String? userProfileId,
     String? email,
     String? fullName,
     String? username,
@@ -165,6 +221,9 @@ class AuthUser {
   }) {
     return AuthUser(
       id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      userId: userId ?? this.userId,
+      userProfileId: userProfileId ?? this.userProfileId,
       email: email ?? this.email,
       fullName: fullName ?? this.fullName,
       username: username ?? this.username,

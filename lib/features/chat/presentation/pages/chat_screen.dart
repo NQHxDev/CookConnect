@@ -1,7 +1,13 @@
+import 'package:cookconnect/core/constants/api_codes/ui_i18n_keys.dart';
+import 'package:cookconnect/core/i18n/api_i18n.dart';
+import 'package:cookconnect/features/profile/presentation/pages/other_user_profile_screen.dart';
 import 'package:cookconnect/core/widgets/custom_pull_to_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cookconnect/features/activity/presentation/pages/activity_screen.dart';
+import 'package:cookconnect/features/auth/data/services/auth_service.dart';
+import 'package:cookconnect/features/chat/data/models/user_suggestion.dart';
+import 'package:cookconnect/features/chat/data/services/chat_api_service.dart';
 import 'package:cookconnect/features/chat/presentation/pages/chat_detail_screen.dart';
 import 'package:cookconnect/features/notification/presentation/pages/system_notification_screen.dart';
 
@@ -42,29 +48,38 @@ class ChatConversationItem {
 }
 
 class SuggestedAccountItem {
+  final String id;
   final String name;
   final String username;
   final String reason;
+  final String? avatar;
   final Color avatarBgColor;
   bool isFollowing;
 
   SuggestedAccountItem({
+    required this.id,
     required this.name,
     required this.username,
     required this.reason,
+    this.avatar,
     required this.avatarBgColor,
     this.isFollowing = false,
   });
 }
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final ChatApiService? chatApiService;
+
+  const ChatScreen({super.key, this.chatApiService});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  late final ChatApiService _chatApiService;
+  late final ScrollController _scrollController;
+
   final List<StoryItem> _mockStories = const [
     StoryItem(
       name: 'Chef Nam',
@@ -142,13 +157,46 @@ class _ChatScreenState extends State<ChatScreen> {
   ];
 
   // Danh sách tài khoản được đề xuất (Suggested Accounts)
-  late List<SuggestedAccountItem> _suggestedAccounts;
+  final List<SuggestedAccountItem> _suggestedAccounts = [];
+  bool _isLoadingSuggestions = false;
+  bool _isLoadingMore = false;
+  bool _hasMoreSuggestions = true;
+
+  static const int _pageSize = 10;
 
   @override
   void initState() {
     super.initState();
-    _suggestedAccounts = [
+    _chatApiService = widget.chatApiService ?? ChatApiService();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+
+    _loadInitialSuggestions();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    // Trigger when user scrolls within 200px of bottom
+    if (maxScroll - currentScroll <= 200) {
+      if (!_isLoadingSuggestions && !_isLoadingMore && _hasMoreSuggestions) {
+        _loadMoreSuggestions();
+      }
+    }
+  }
+
+  List<SuggestedAccountItem> _getFallbackMockSuggestions() {
+    return [
       SuggestedAccountItem(
+        id: 'mock-1',
         name: 'Mai Anh',
         username: '@maianh_baking',
         reason: 'Có 15 người theo dõi chung',
@@ -156,6 +204,7 @@ class _ChatScreenState extends State<ChatScreen> {
         isFollowing: false,
       ),
       SuggestedAccountItem(
+        id: 'mock-2',
         name: 'Hoàng Long',
         username: '@long_chefhouse',
         reason: 'Gợi ý cho bạn • Đầu bếp món Âu',
@@ -163,6 +212,7 @@ class _ChatScreenState extends State<ChatScreen> {
         isFollowing: false,
       ),
       SuggestedAccountItem(
+        id: 'mock-3',
         name: 'Chef Hùng',
         username: '@hung_masterchef',
         reason: 'Theo dõi bởi Chef Nam',
@@ -170,6 +220,7 @@ class _ChatScreenState extends State<ChatScreen> {
         isFollowing: false,
       ),
       SuggestedAccountItem(
+        id: 'mock-4',
         name: 'Thu Trang',
         username: '@trang_healthyfood',
         reason: 'Phổ biến trong Ẩm thực Healthy',
@@ -177,6 +228,7 @@ class _ChatScreenState extends State<ChatScreen> {
         isFollowing: false,
       ),
       SuggestedAccountItem(
+        id: 'mock-5',
         name: 'Linh Chi',
         username: '@linhchi_pastry',
         reason: 'Từ danh bạ của bạn',
@@ -186,12 +238,127 @@ class _ChatScreenState extends State<ChatScreen> {
     ];
   }
 
-  Future<void> _handleRefresh() async {
-    // Mock 2s network load time
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      setState(() {});
+  SuggestedAccountItem _mapToItem(UserSuggestion s) {
+    final name = (s.displayName != null && s.displayName!.isNotEmpty)
+        ? s.displayName!
+        : (s.username ?? ApiI18n.text(UiI18nKeys.chatDefaultChef));
+    final usernameText = s.username != null && s.username!.isNotEmpty
+        ? (s.username!.startsWith('@') ? s.username! : '@${s.username}')
+        : '';
+    return SuggestedAccountItem(
+      id: s.id,
+      name: name,
+      username: usernameText,
+      reason: s.formattedReason,
+      avatar: s.avatar,
+      avatarBgColor: s.avatarBgColor,
+      isFollowing: s.isFollowing,
+    );
+  }
+
+  Future<void> _loadInitialSuggestions() async {
+    setState(() {
+      _isLoadingSuggestions = true;
+    });
+
+    final token = AuthService.instance.tokens?.accessToken;
+    if (token == null || token.isEmpty) {
+      // Guest or mock session: fallback to initial list
+      setState(() {
+        _suggestedAccounts.clear();
+        _suggestedAccounts.addAll(_getFallbackMockSuggestions());
+        _isLoadingSuggestions = false;
+        _hasMoreSuggestions = false;
+      });
+      return;
     }
+
+    try {
+      final fetched = await _chatApiService.getSuggestedUsers(
+        accessToken: token,
+        limit: _pageSize,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _suggestedAccounts.clear();
+        if (fetched.isNotEmpty) {
+          _suggestedAccounts.addAll(fetched.map(_mapToItem));
+          // If returned items < pageSize, no more
+          _hasMoreSuggestions = fetched.length >= _pageSize;
+        } else {
+          // If empty suggestions for new user, provide fallback
+          _suggestedAccounts.addAll(_getFallbackMockSuggestions());
+          _hasMoreSuggestions = false;
+        }
+        _isLoadingSuggestions = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (_suggestedAccounts.isEmpty) {
+          _suggestedAccounts.addAll(_getFallbackMockSuggestions());
+        }
+        _isLoadingSuggestions = false;
+        _hasMoreSuggestions = false;
+      });
+    }
+  }
+
+  Future<void> _loadMoreSuggestions() async {
+    if (_isLoadingMore || !_hasMoreSuggestions) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    final token = AuthService.instance.tokens?.accessToken;
+    if (token == null || token.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+          _hasMoreSuggestions = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final fetched = await _chatApiService.getSuggestedUsers(
+        accessToken: token,
+        limit: _pageSize,
+      );
+
+      if (!mounted) return;
+
+      final existingIds = _suggestedAccounts.map((a) => a.id).toSet();
+      final newItems = fetched
+          .where((s) => !existingIds.contains(s.id))
+          .map(_mapToItem)
+          .toList();
+
+      setState(() {
+        _isLoadingMore = false;
+        if (newItems.isNotEmpty) {
+          _suggestedAccounts.addAll(newItems);
+          if (fetched.length < _pageSize) {
+            _hasMoreSuggestions = false;
+          }
+        } else {
+          _hasMoreSuggestions = false;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingMore = false;
+        _hasMoreSuggestions = false;
+      });
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    await _loadInitialSuggestions();
   }
 
   void _showSuggestedAccountsExplanation(BuildContext context) {
@@ -238,10 +405,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Tài khoản được đề xuất',
-                        style: TextStyle(
+                        ApiI18n.text(UiI18nKeys.chatSuggestedAccountsTitle),
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
@@ -252,7 +419,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Các tài khoản này được đề xuất dựa trên sở thích ẩm thực, các kết nối bạn bè chung, hoạt động tương tác gần đây, danh bạ hoặc những đầu bếp nổi bật mà bạn có thể quen biết trên CookConnect.',
+                  ApiI18n.text(UiI18nKeys.chatSuggestedAccountsExplanation),
                   style: TextStyle(
                     fontSize: 14.5,
                     color: Colors.grey.shade700,
@@ -273,9 +440,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Đã hiểu',
-                      style: TextStyle(
+                    child: Text(
+                      ApiI18n.text(UiI18nKeys.chatUnderstood),
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
@@ -295,126 +462,130 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.group_add_outlined),
-          onPressed: () {},
-        ),
-        title: const Text(
-          'Hộp thư',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Iconsax.search_normal_1, size: 20),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        slivers: [
-          // Custom Pull-to-refresh: đẩy danh sách tin xuống nhường chỗ cho hiệu ứng 3 chấm nhảy sóng ở trên
-          CustomSliverRefreshControl(
-            onRefresh: _handleRefresh,
-            primaryColor: primaryColor,
-          ),
-          // Danh sách Tin / Story của bạn bè & người đã follow
-          SliverToBoxAdapter(
-            child: _buildStoriesSection(context),
-          ),
-          // Mục thông báo chung (Hoạt động & Follower mới)
-          SliverToBoxAdapter(
-            child: _buildNotificationTile(
-              context: context,
-              icon: Iconsax.notification,
-              iconBgColor: const Color(0xFFEF4444),
-              title: 'Hoạt động mới',
-              subtitle: 'Follower mới, lượt thích, bình luận và nhắc đến',
-              hasUnread: true,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ActivityScreen(),
-                  ),
-                );
-              },
+    return ValueListenableBuilder<String>(
+      valueListenable: ApiI18n.languageNotifier,
+      builder: (context, currentLanguage, _) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            centerTitle: true,
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            scrolledUnderElevation: 0,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.group_add_outlined),
+              onPressed: () {},
             ),
-          ),
-          // Mục Thông báo hệ thống
-          SliverToBoxAdapter(
-            child: _buildNotificationTile(
-              context: context,
-              icon: Iconsax.message_text,
-              iconBgColor: Colors.black87,
-              title: 'Thông báo hệ thống',
-              subtitle: 'Cập nhật ứng dụng, chính sách và tin từ CookConnect',
-              hasUnread: false,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const SystemNotificationScreen(),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 6),
-          ),
-          // Tiêu đề danh sách Tin nhắn
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text(
-                'Tin nhắn',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+            title: Text(
+              ApiI18n.text(UiI18nKeys.chatInboxTitle),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
               ),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Iconsax.search_normal_1, size: 20),
+                onPressed: () {},
+              ),
+            ],
           ),
-          // Danh sách 3 tin nhắn cuộc trò chuyện
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final item = _mockConversations[index];
-                return _buildChatItem(context, item);
-              },
-              childCount: _mockConversations.length,
+          body: CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
             ),
-          ),
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 12),
-          ),
-          // Tiêu đề phần Tài khoản được đề xuất + Icon hỏi chấm
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  const Text(
-                    'Tài khoản được đề xuất',
-                    style: TextStyle(
+            slivers: [
+              // Custom Pull-to-refresh: đẩy danh sách tin xuống nhường chỗ cho hiệu ứng 3 chấm nhảy sóng ở trên
+              CustomSliverRefreshControl(
+                onRefresh: _handleRefresh,
+                primaryColor: primaryColor,
+              ),
+              // Danh sách Tin / Story của bạn bè & người đã follow
+              SliverToBoxAdapter(
+                child: _buildStoriesSection(context),
+              ),
+              // Mục thông báo chung (Hoạt động & Follower mới)
+              SliverToBoxAdapter(
+                child: _buildNotificationTile(
+                  context: context,
+                  icon: Iconsax.notification,
+                  iconBgColor: const Color(0xFFEF4444),
+                  title: ApiI18n.text(UiI18nKeys.chatNewActivityTitle),
+                  subtitle: ApiI18n.text(UiI18nKeys.chatNewActivitySubtitle),
+                  hasUnread: true,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ActivityScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // Mục Thông báo hệ thống
+              SliverToBoxAdapter(
+                child: _buildNotificationTile(
+                  context: context,
+                  icon: Iconsax.message_text,
+                  iconBgColor: Colors.black87,
+                  title: ApiI18n.text(UiI18nKeys.chatSystemNotificationTitle),
+                  subtitle: ApiI18n.text(UiI18nKeys.chatSystemNotificationSubtitle),
+                  hasUnread: false,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SystemNotificationScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 6),
+              ),
+              // Tiêu đề danh sách Tin nhắn
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Text(
+                    ApiI18n.text(UiI18nKeys.chatMessagesSectionTitle),
+                    style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
                   ),
+                ),
+              ),
+              // Danh sách 3 tin nhắn cuộc trò chuyện
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = _mockConversations[index];
+                    return _buildChatItem(context, item);
+                  },
+                  childCount: _mockConversations.length,
+                ),
+              ),
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 12),
+              ),
+              // Tiêu đề phần Tài khoản được đề xuất + Icon hỏi chấm
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        ApiI18n.text(UiI18nKeys.chatSuggestedAccountsTitle),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
                   const SizedBox(width: 6),
                   GestureDetector(
                     onTap: () => _showSuggestedAccountsExplanation(context),
@@ -431,21 +602,53 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          // Danh sách tài khoản được đề xuất
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final account = _suggestedAccounts[index];
-                return _buildSuggestedAccountTile(context, account, index, primaryColor);
-              },
-              childCount: _suggestedAccounts.length,
+          // Loading ban đầu cho danh sách đề xuất
+          if (_isLoadingSuggestions && _suggestedAccounts.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: CustomRefreshBadge(
+                    isRefreshing: true,
+                    percentage: 1.0,
+                    primaryColor: primaryColor,
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            // Danh sách tài khoản được đề xuất
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final account = _suggestedAccounts[index];
+                  return _buildSuggestedAccountTile(context, account, index, primaryColor);
+                },
+                childCount: _suggestedAccounts.length,
+              ),
             ),
-          ),
+            // Loading thêm khi cuộn trang (Infinite scroll indicator)
+            if (_isLoadingMore)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: CustomRefreshBadge(
+                      isRefreshing: true,
+                      percentage: 1.0,
+                      primaryColor: primaryColor,
+                    ),
+                  ),
+                ),
+              ),
+          ],
           const SliverToBoxAdapter(
             child: SizedBox(height: 24),
           ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -456,18 +659,37 @@ class _ChatScreenState extends State<ChatScreen> {
     Color primaryColor,
   ) {
     return ListTile(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => OtherUserProfileScreen(
+              userId: account.id,
+              name: account.name,
+              username: account.username,
+              avatar: account.avatar,
+              avatarBgColor: account.avatarBgColor,
+              initialIsFollowing: account.isFollowing,
+            ),
+          ),
+        );
+      },
       contentPadding: const EdgeInsets.only(left: 16, right: 4, top: 2, bottom: 2),
       leading: CircleAvatar(
         radius: 24,
         backgroundColor: account.avatarBgColor,
-        child: Text(
-          account.name.characters.first,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        backgroundImage: account.avatar != null && account.avatar!.isNotEmpty
+            ? NetworkImage(account.avatar!)
+            : null,
+        child: (account.avatar == null || account.avatar!.isEmpty)
+            ? Text(
+                account.name.characters.first,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            : null,
       ),
       title: Text(
         account.name,
@@ -510,7 +732,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               child: Text(
-                account.isFollowing ? 'Đang theo dõi' : 'Theo dõi',
+                account.isFollowing
+                    ? ApiI18n.text(UiI18nKeys.profileFollowing)
+                    : ApiI18n.text(UiI18nKeys.profileFollow),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -597,7 +821,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Tạo tin',
+              ApiI18n.text(UiI18nKeys.chatCreateStory),
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey.shade700,
@@ -827,7 +1051,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
       subtitle: Text(
-        item.isLastMessageFromMe ? 'Bạn: ${item.lastMessage}' : item.lastMessage,
+        item.isLastMessageFromMe ? '${ApiI18n.text(UiI18nKeys.chatYouPrefix)}: ${item.lastMessage}' : item.lastMessage,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(

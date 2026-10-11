@@ -1,10 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:cookconnect/features/auth/data/models/auth_user.dart';
+import 'package:cookconnect/features/auth/data/models/auth_tokens.dart';
+import 'package:cookconnect/features/auth/data/services/auth_service.dart';
+import 'package:cookconnect/features/chat/data/models/user_suggestion.dart';
+import 'package:cookconnect/features/chat/data/services/chat_api_service.dart';
 import 'package:cookconnect/features/chat/presentation/pages/chat_screen.dart';
 import 'package:cookconnect/features/chat/presentation/pages/chat_detail_screen.dart';
 import 'package:cookconnect/features/activity/presentation/pages/activity_screen.dart';
 import 'package:cookconnect/features/notification/presentation/pages/system_notification_screen.dart';
+
+class _MockChatApiService extends ChatApiService {
+  final Future<List<UserSuggestion>> Function(int limit) onGetSuggestions;
+
+  _MockChatApiService({required this.onGetSuggestions});
+
+  @override
+  Future<List<UserSuggestion>> getSuggestedUsers({
+    required String accessToken,
+    int limit = 10,
+  }) {
+    return onGetSuggestions(limit);
+  }
+}
 
 void main() {
   testWidgets('ChatScreen renders header, stories list with "Tạo tin" and friends', (WidgetTester tester) async {
@@ -157,5 +177,129 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SystemNotificationScreen), findsOneWidget);
+  });
+
+  testWidgets('ChatScreen fetches real suggested users from API and supports infinite scroll', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    // Set authenticated user with access token
+    AuthService.instance.setSession(
+      user: AuthUser(
+        id: 'test-user-1',
+        email: 'tester@cookconnect.app',
+        fullName: 'Test Chef',
+      ),
+      tokens: AuthTokens(
+        accessToken: 'valid-test-access-token',
+        refreshToken: 'valid-test-refresh-token',
+      ),
+    );
+
+    int callCount = 0;
+    final mockChatApiService = _MockChatApiService(
+      onGetSuggestions: (limit) async {
+        callCount++;
+        if (callCount == 1) {
+          return List.generate(
+            10,
+            (i) => UserSuggestion(
+              id: 'api-user-$i',
+              displayName: 'Chef Đề Xuất $i',
+              username: 'chef_$i',
+              reason: 'popular',
+              followersCount: 100 + i,
+              isFollowing: false,
+            ),
+          );
+        } else {
+          return List.generate(
+            5,
+            (i) => UserSuggestion(
+              id: 'api-user-page2-$i',
+              displayName: 'Chef Trang Hai $i',
+              username: 'page2_$i',
+              reason: 'mutual_friends',
+              mutualCount: 2,
+              isFollowing: false,
+            ),
+          );
+        }
+      },
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChatScreen(chatApiService: mockChatApiService),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify first 10 items loaded
+    expect(callCount, 1);
+    expect(find.text('Chef Đề Xuất 0'), findsOneWidget);
+
+    // Scroll down to trigger infinite scroll
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1500));
+    await tester.pumpAndSettle();
+
+    // Verify infinite scroll triggered page 2
+    expect(callCount, 2);
+    expect(find.text('Chef Trang Hai 0'), findsOneWidget);
+  });
+
+  testWidgets('ChatScreen reactively updates UI labels when language changes', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ChatScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Default Vietnamese labels
+    expect(find.text('Hộp thư'), findsOneWidget);
+    expect(find.text('Tạo tin'), findsOneWidget);
+    expect(find.text('Hoạt động mới'), findsOneWidget);
+    expect(find.text('Thông báo hệ thống'), findsOneWidget);
+    expect(find.text('Tin nhắn'), findsOneWidget);
+    expect(find.text('Tài khoản được đề xuất'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, 'Theo dõi'), findsWidgets);
+
+    // Switch language to English
+    ApiI18n.currentLanguage = ApiI18n.en;
+    await tester.pumpAndSettle();
+
+    // English labels
+    expect(find.text('Inbox'), findsOneWidget);
+    expect(find.text('Create story'), findsOneWidget);
+    expect(find.text('New activity'), findsOneWidget);
+    expect(find.text('System notifications'), findsOneWidget);
+    expect(find.text('Messages'), findsOneWidget);
+    expect(find.text('Suggested accounts'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, 'Follow'), findsWidgets);
+
+    // Open explanation modal in English
+    await tester.tap(find.byIcon(Icons.help_outline_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Understood'), findsOneWidget);
+    expect(find.textContaining('These accounts are suggested based on your culinary interests'), findsOneWidget);
+
+    await tester.tap(find.text('Understood'));
+    await tester.pumpAndSettle();
+
+    // Reset back to Vietnamese
+    ApiI18n.currentLanguage = ApiI18n.vi;
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hộp thư'), findsOneWidget);
+    expect(find.text('Tạo tin'), findsOneWidget);
   });
 }

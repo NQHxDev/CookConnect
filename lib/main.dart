@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'package:cookconnect/features/main/presentation/pages/main_screen.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ApiI18n.init();
   await AuthService.instance.init();
   runApp(const CookConnect());
 }

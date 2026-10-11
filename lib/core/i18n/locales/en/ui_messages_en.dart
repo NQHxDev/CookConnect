@@ -1,0 +1,196 @@
+import 'package:cookconnect/core/constants/api_codes/ui_i18n_keys.dart';
+
+/// English UI text translations
+final Map<String, String> uiMessagesEn = {
+  // Bottom Navigation Bar
+  UiI18nKeys.navHome: 'Home',
+  UiI18nKeys.navLibrary: 'Library',
+  UiI18nKeys.navInbox: 'Inbox',
+  UiI18nKeys.navProfile: 'Profile',
+
+  // Home Screen
+  UiI18nKeys.homeTabFriends: 'Friends',
+  UiI18nKeys.homeTabFollowing: 'Following',
+  UiI18nKeys.homeTabForYou: 'For You',
+  UiI18nKeys.homeLive: 'Live',
+  UiI18nKeys.homeSearch: 'Search',
+
+  // Search Screen
+  UiI18nKeys.searchHint: 'Search dishes, ingredients, chefs...',
+  UiI18nKeys.searchSeeMore: 'See more',
+  UiI18nKeys.searchClearAll: 'Clear all',
+  UiI18nKeys.searchTrending: 'Trending searches',
+  UiI18nKeys.searchTodaySuggestions: 'Today\'s suggestions',
+  UiI18nKeys.searchNoResultsTitle: 'No dishes found',
+  UiI18nKeys.searchNoResultsSubtitle: 'Try searching with another keyword or explore suggestions',
+  UiI18nKeys.searchResultsCount: 'Found {count} dishes',
+  UiI18nKeys.searchMinuteShort: 'm',
+
+  // Profile & Other User Profile Common
+  UiI18nKeys.profileBack: 'Back',
+  UiI18nKeys.profileShare: 'Share',
+  UiI18nKeys.profileMore: 'More',
+  UiI18nKeys.profileLinkCopied: 'Profile link copied to clipboard',
+  UiI18nKeys.profileStatRecipes: 'Recipes',
+  UiI18nKeys.profileStatFollowers: 'Followers',
+  UiI18nKeys.profileStatLikes: 'Likes',
+  UiI18nKeys.profileFollow: 'Follow',
+  UiI18nKeys.profileFollowing: 'Following',
+  UiI18nKeys.profileMessage: 'Message',
+  UiI18nKeys.profileFollowedToast: 'Followed {name}',
+  UiI18nKeys.profileUnfollowedToast: 'Unfollowed {name}',
+  UiI18nKeys.profileLoadingChef: 'Loading chef profile...',
+  UiI18nKeys.profilePrivateLikesTitle: 'Liked videos are private',
+  UiI18nKeys.profilePrivateLikesSubtitle: 'Videos liked by this user are currently private.',
+  UiI18nKeys.profileUserNotSharedTitle: 'User has not shared yet',
+  UiI18nKeys.profileUserNotSharedSubtitle: 'This user has not posted any recipes or cooking videos yet.',
+  UiI18nKeys.profileActionShare: 'Share this profile',
+  UiI18nKeys.profileActionReport: 'Report account',
+  UiI18nKeys.profileActionBlock: 'Block account',
+  UiI18nKeys.profileReportThankYou: 'Thank you for your report',
+  UiI18nKeys.profileBlockedToast: 'Blocked {name}',
+
+  // Profile Screen
+  UiI18nKeys.profileEditTooltip: 'Edit profile',
+  UiI18nKeys.profileFindFriendsTooltip: 'Find friends',
+  UiI18nKeys.profileMenuTooltip: 'Menu',
+  UiI18nKeys.profileAddBio: 'Add bio',
+  UiI18nKeys.profileFeatureInDevelopment: 'Feature under development',
+  UiI18nKeys.profileForgotPasswordTitle: 'Forgot password?',
+  UiI18nKeys.profileForgotPasswordDesc: 'Enter your registered Email or Phone number to receive password reset instructions.',
+  UiI18nKeys.profileForgotPasswordHint: 'Email or Phone...',
+  UiI18nKeys.profileCancel: 'Cancel',
+  UiI18nKeys.profileForgotPasswordSubmit: 'Submit',
+  UiI18nKeys.profileForgotPasswordSent: 'Password reset instructions have been sent!',
+  UiI18nKeys.profileGuestHeroTitle: 'Join CookConnect',
+  UiI18nKeys.profileGuestHeroDesc: 'Sign in to save cooking recipes, follow your favorite chefs, and share your delicious culinary creations!',
+  UiI18nKeys.profileGuestCta: 'Log in / Register now',
+  UiI18nKeys.profileGuestBenefitsTitle: 'Member benefits',
+  UiI18nKeys.profileBenefitSaveTitle: 'Save recipes',
+  UiI18nKeys.profileBenefitSaveDesc: 'Unlimited personal recipe collection',
+  UiI18nKeys.profileBenefitSaveMsg: 'Sign in to save delicious recipes!',
+  UiI18nKeys.profileBenefitLikeTitle: 'Like & Heart',
+  UiI18nKeys.profileBenefitLikeDesc: 'Interact with the culinary community',
+  UiI18nKeys.profileBenefitLikeMsg: 'Sign in to express your love for dishes!',
+  UiI18nKeys.profileBenefitUploadTitle: 'Upload videos',
+  UiI18nKeys.profileBenefitUploadDesc: 'Share exclusive cooking tips & guides',
+  UiI18nKeys.profileBenefitUploadMsg: 'Sign in to post your cooking videos!',
+  UiI18nKeys.profileBenefitFollowTitle: 'Follow chefs',
+  UiI18nKeys.profileBenefitFollowDesc: 'Stay updated with new recipes daily',
+  UiI18nKeys.profileBenefitFollowMsg: 'Sign in to follow your favorite chefs!',
+  UiI18nKeys.profileSectionAccountActivity: 'Account & Activity',
+  UiI18nKeys.profileSavedDishes: 'Saved recipes',
+  UiI18nKeys.profileNeedLogin: 'Login required',
+  UiI18nKeys.profileLoginToViewSavedDishes: 'Sign in to view your saved recipes',
+  UiI18nKeys.profileLikedVideos: 'Liked videos',
+  UiI18nKeys.profileLoginToViewLikedVideos: 'Sign in to view videos you have liked',
+  UiI18nKeys.profileRecentWatchHistory: 'Recently watched',
+  UiI18nKeys.profileRecentWatchHistorySubtitle: 'Review recipes you have recently explored',
+  UiI18nKeys.profileLoginToSyncHistory: 'Sign in to sync watch history across devices',
+  UiI18nKeys.profileSettingsSubtitle: 'Language, notifications, FAQ, cache',
+  UiI18nKeys.profileWatermark: 'CookConnect - Platform for culinary passion',
+  UiI18nKeys.profileVersion: 'Version 1.0.0 (Build 100)',
+  UiI18nKeys.profileAuthSheetTitle: 'Log in to CookConnect',
+  UiI18nKeys.profileAuthSheetDesc: 'Join our community to share your cooking passion and preserve delightful recipes every day.',
+  UiI18nKeys.profileAuthOptionCredentials: 'Use Phone / Email / Username',
+  UiI18nKeys.profileAuthOptionGoogle: 'Continue with Google',
+  UiI18nKeys.profileAuthOptionApple: 'Continue with Apple',
+  UiI18nKeys.profileAuthRegister: 'Register an account',
+  UiI18nKeys.profileAuthDisclaimer: 'By continuing, you agree to CookConnect\'s Terms of Service and Privacy Policy.',
+  UiI18nKeys.profileMenuPersonalTools: 'Personal tools',
+  UiI18nKeys.profileMenuActivityCenter: 'Activity Center',
+  UiI18nKeys.profileMenuSettingsSection: 'Settings',
+  UiI18nKeys.profileMenuSettingsAndPrivacy: 'Settings and privacy',
+  UiI18nKeys.profileLikedVideosTitle: 'Liked videos',
+  UiI18nKeys.profileLikedVideosSubtitle: 'Only you can see this section',
+  UiI18nKeys.profileSavedRecipesTitle: 'No saved recipes yet',
+  UiI18nKeys.profileSavedRecipesSubtitle: 'Tap bookmark on any recipe video to review it here',
+
+  // Settings & Privacy Main
+  UiI18nKeys.settingsTitle: 'Settings & Privacy',
+
+  // Settings Sections
+  UiI18nKeys.settingsSectionActivity: 'Activity',
+  UiI18nKeys.settingsSectionAccount: 'Account',
+  UiI18nKeys.settingsSectionDisplaySettings: 'Display settings',
+  UiI18nKeys.settingsSectionInteractions: 'Interactions',
+  UiI18nKeys.settingsSectionPreferences: 'Preferences',
+  UiI18nKeys.settingsSectionCacheCellular: 'Cache & Cellular',
+  UiI18nKeys.settingsSectionSupportPolicies: 'Support & Policies',
+  UiI18nKeys.settingsSectionLogin: 'Login',
+
+  // Section 1: Activity Items
+  UiI18nKeys.settingsManagePosts: 'Manage posts',
+  UiI18nKeys.settingsContentPreferences: 'Content preferences',
+  UiI18nKeys.settingsNotifications: 'Notifications',
+  UiI18nKeys.settingsScreenTime: 'Screen time',
+  UiI18nKeys.settingsFamily: 'Family',
+
+  // Section 2: Account Items
+  UiI18nKeys.settingsAccount: 'Account',
+  UiI18nKeys.settingsSecurityPermissions: 'Security & Permissions',
+  UiI18nKeys.settingsShareProfile: 'Share profile',
+
+  // Section 3: Display Settings Items
+  UiI18nKeys.settingsPrivateAccount: 'Private account',
+  UiI18nKeys.settingsRestrictedAccounts: 'Restricted accounts',
+  UiI18nKeys.settingsBlockedAccounts: 'Blocked accounts',
+
+  // Section 4: Interactions Items
+  UiI18nKeys.settingsComments: 'Comments',
+  UiI18nKeys.settingsMentions: 'Mentions',
+  UiI18nKeys.settingsDirectMessages: 'Direct messages',
+  UiI18nKeys.settingsDownloads: 'Downloads',
+  UiI18nKeys.settingsProfileViews: 'Profile views',
+
+  // Section 5: Preferences Items
+  UiI18nKeys.settingsAudienceControl: 'Audience control',
+  UiI18nKeys.settingsAds: 'Ads',
+  UiI18nKeys.settingsVideoPlayback: 'Video playback',
+  UiI18nKeys.settingsDisplay: 'Display',
+  UiI18nKeys.settingsAccessibility: 'Accessibility',
+
+  // Section 6: Cache & Cellular Data Items
+  UiI18nKeys.settingsOfflineVideos: 'Offline videos',
+  UiI18nKeys.settingsFreeUpSpace: 'Free up space',
+  UiI18nKeys.settingsDataSaver: 'Data saver',
+
+  // Section 7: Support & Policies Items
+  UiI18nKeys.settingsHelpCenter: 'Help Center',
+  UiI18nKeys.settingsPrivacyCenter: 'Privacy Center',
+  UiI18nKeys.settingsTermsPolicies: 'Terms & Policies',
+
+  // Section 8: Login Items
+  UiI18nKeys.settingsSwitchAccount: 'Switch account',
+  UiI18nKeys.settingsLogout: 'Log out',
+
+  // Settings & Language Screen
+  UiI18nKeys.settingsLanguage: 'Language',
+  UiI18nKeys.settingsLanguageAvailable: 'Available languages',
+  UiI18nKeys.settingsLanguageComingSoon: 'Coming soon',
+  UiI18nKeys.settingsLanguageSoonBadge: 'Soon',
+  UiI18nKeys.settingsLanguageVietnamese: 'Tiếng Việt',
+  UiI18nKeys.settingsLanguageEnglish: 'English',
+  UiI18nKeys.settingsLanguageChinese: '中文 (Chinese)',
+  UiI18nKeys.settingsLanguageJapanese: '日本語 (Japanese)',
+  UiI18nKeys.settingsLanguageKorean: '한국어 (Korean)',
+  UiI18nKeys.settingsLanguageVietnameseSubtitle: 'Vietnamese',
+  UiI18nKeys.settingsLanguageEnglishSubtitle: 'English',
+  UiI18nKeys.settingsLanguageChineseSubtitle: 'Chinese',
+  UiI18nKeys.settingsLanguageJapaneseSubtitle: 'Japanese',
+  UiI18nKeys.settingsLanguageKoreanSubtitle: 'Korean',
+
+  // Chat / Inbox Screen
+  UiI18nKeys.chatInboxTitle: 'Inbox',
+  UiI18nKeys.chatCreateStory: 'Create story',
+  UiI18nKeys.chatNewActivityTitle: 'New activity',
+  UiI18nKeys.chatNewActivitySubtitle: 'New followers, likes, comments and mentions',
+  UiI18nKeys.chatSystemNotificationTitle: 'System notifications',
+  UiI18nKeys.chatSystemNotificationSubtitle: 'App updates, policies and news from CookConnect',
+  UiI18nKeys.chatMessagesSectionTitle: 'Messages',
+  UiI18nKeys.chatSuggestedAccountsTitle: 'Suggested accounts',
+  UiI18nKeys.chatSuggestedAccountsExplanation: 'These accounts are suggested based on your culinary interests, mutual connections, recent activity, contacts, or featured chefs you may know on CookConnect.',
+  UiI18nKeys.chatUnderstood: 'Understood',
+  UiI18nKeys.chatYouPrefix: 'You',
+  UiI18nKeys.chatDefaultChef: 'Chef',
+};

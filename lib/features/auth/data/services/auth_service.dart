@@ -114,11 +114,16 @@ class AuthService extends ChangeNotifier {
       // 1. Check if current access token is valid and retrieve user profile
       final profileResult = await _apiService.getProfile(
         activeTokens.accessToken,
-        userId: _currentUser?.id,
+        userId: _currentUser?.userId ?? _currentUser?.id,
       );
 
       if (profileResult.isSuccess && profileResult.user != null) {
-        _currentUser = _mergeUser(_currentUser, profileResult.user!);
+        var user = profileResult.user!;
+        if ((user.accountId == null || user.accountId!.isEmpty) &&
+            activeTokens.sub != null) {
+          user = user.copyWith(accountId: activeTokens.sub);
+        }
+        _currentUser = _mergeUser(_currentUser, user);
         await _storage.saveUser(_currentUser!);
         notifyListeners();
         return;
@@ -145,10 +150,15 @@ class AuthService extends ChangeNotifier {
           // Fetch fresh user profile with new access token
           final newProfileResult = await _apiService.getProfile(
             newTokens.accessToken,
-            userId: _currentUser?.id,
+            userId: _currentUser?.userId ?? _currentUser?.id,
           );
           if (newProfileResult.isSuccess && newProfileResult.user != null) {
-            _currentUser = _mergeUser(_currentUser, newProfileResult.user!);
+            var user = newProfileResult.user!;
+            if ((user.accountId == null || user.accountId!.isEmpty) &&
+                newTokens.sub != null) {
+              user = user.copyWith(accountId: newTokens.sub);
+            }
+            _currentUser = _mergeUser(_currentUser, user);
             await _storage.saveUser(_currentUser!);
           }
           notifyListeners();
@@ -220,6 +230,24 @@ class AuthService extends ChangeNotifier {
   AuthUser _mergeUser(AuthUser? current, AuthUser updated) {
     if (current == null) return updated;
 
+    final mergedAccountId = (updated.accountId != null && updated.accountId!.isNotEmpty)
+        ? updated.accountId
+        : current.accountId;
+
+    final mergedUserId = (updated.userId != null && updated.userId!.isNotEmpty)
+        ? updated.userId
+        : current.userId;
+
+    final mergedUserProfileId = (updated.userProfileId != null && updated.userProfileId!.isNotEmpty)
+        ? updated.userProfileId
+        : current.userProfileId;
+
+    final mergedId = (updated.id.isNotEmpty && !updated.id.startsWith('demo-'))
+        ? updated.id
+        : (mergedUserId?.isNotEmpty == true
+            ? mergedUserId!
+            : (mergedAccountId?.isNotEmpty == true ? mergedAccountId! : current.id));
+
     final mergedName = updated.fullName.isNotEmpty &&
             updated.fullName != updated.email &&
             updated.fullName != updated.email.split('@').first
@@ -250,7 +278,10 @@ class AuthService extends ChangeNotifier {
             : current.avatar;
 
     return current.copyWith(
-      id: updated.id.isNotEmpty ? updated.id : current.id,
+      id: mergedId,
+      accountId: mergedAccountId,
+      userId: mergedUserId,
+      userProfileId: mergedUserProfileId,
       email: updated.email.isNotEmpty ? updated.email : current.email,
       fullName: mergedName,
       username: mergedUsername,
@@ -275,13 +306,18 @@ class AuthService extends ChangeNotifier {
 
   /// Update active session with authenticated user data & tokens
   void setSession({required AuthUser user, required AuthTokens tokens}) {
-    _currentUser = user;
+    var sessionUser = user;
+    if ((sessionUser.accountId == null || sessionUser.accountId!.isEmpty) &&
+        tokens.sub != null) {
+      sessionUser = sessionUser.copyWith(accountId: tokens.sub);
+    }
+    _currentUser = sessionUser;
     _tokens = tokens;
     notifyListeners();
 
     // Persist to secure storage
     _storage.saveTokens(tokens);
-    _storage.saveUser(user);
+    _storage.saveUser(sessionUser);
   }
 
   /// Demo chef user session with real data
@@ -291,6 +327,9 @@ class AuthService extends ChangeNotifier {
   }) {
     final demoUser = AuthUser(
       id: 'demo-chef-01',
+      accountId: 'demo-acc-01',
+      userId: 'demo-user-01',
+      userProfileId: 'demo-profile-01',
       email: email,
       fullName: name,
       username: 'linhdan_cook',

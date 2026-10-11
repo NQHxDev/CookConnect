@@ -6,7 +6,7 @@ import 'package:flutter_remix/flutter_remix.dart';
 import 'package:cookconnect/core/network/api_service.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 import 'package:cookconnect/core/widgets/google_logo.dart';
-import 'package:cookconnect/features/profile/presentation/widgets/profile_setup_dialog.dart';
+import 'package:cookconnect/features/profile/presentation/pages/profile_setup_screen.dart';
 import 'package:cookconnect/features/auth/presentation/pages/register_email_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -306,16 +306,15 @@ class _LoginScreenState extends State<LoginScreen>
           widget.onLoginSuccess!(displayName, phone);
         }
 
-        final navigator = Navigator.of(context);
-        final parentContext = navigator.context;
-        navigator.pop();
-
         if (_isSignUp) {
-          Future.microtask(() {
-            if (parentContext.mounted) {
-              ProfileSetupDialog.show(parentContext, isFirstTime: true);
-            }
-          });
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => const ProfileSetupScreen(),
+            ),
+            (route) => false,
+          );
+        } else {
+          Navigator.of(context).pop();
         }
       } else {
         _phonePasswordController.clear();
@@ -397,16 +396,15 @@ class _LoginScreenState extends State<LoginScreen>
           widget.onLoginSuccess!(displayName, email);
         }
 
-        final navigator = Navigator.of(context);
-        final parentContext = navigator.context;
-        navigator.pop();
-
         if (_isSignUp) {
-          Future.microtask(() {
-            if (parentContext.mounted) {
-              ProfileSetupDialog.show(parentContext, isFirstTime: true);
-            }
-          });
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => const ProfileSetupScreen(),
+            ),
+            (route) => false,
+          );
+        } else {
+          Navigator.of(context).pop();
         }
       } else {
         _emailPasswordController.clear();

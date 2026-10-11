@@ -42,6 +42,9 @@ void main() {
         );
         final user = AuthUser(
           id: 'usr-100',
+          accountId: 'acc-50',
+          userId: 'usr-100',
+          userProfileId: 'prof-25',
           email: 'chef@cookconnect.app',
           fullName: 'Chef Test',
           username: 'cheftest',
@@ -58,6 +61,9 @@ void main() {
         expect(retrievedTokens?.expiresIn, 3600);
 
         expect(retrievedUser?.id, 'usr-100');
+        expect(retrievedUser?.userId, 'usr-100');
+        expect(retrievedUser?.accountId, 'acc-50');
+        expect(retrievedUser?.userProfileId, 'prof-25');
         expect(retrievedUser?.email, 'chef@cookconnect.app');
         expect(retrievedUser?.fullName, 'Chef Test');
         expect(retrievedUser?.username, 'cheftest');

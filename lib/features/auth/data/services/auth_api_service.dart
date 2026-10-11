@@ -49,7 +49,7 @@ class AuthApiService {
       return OtpResult(
         isSuccess: false,
         statusCode: e.statusCode,
-        error: e.error ?? e.message,
+        error: e.message,
       );
     } catch (e) {
       return OtpResult(
@@ -101,7 +101,7 @@ class AuthApiService {
       return OtpResult(
         isSuccess: false,
         statusCode: e.statusCode,
-        error: e.error ?? e.message,
+        error: e.message,
       );
     } catch (e) {
       return OtpResult(
@@ -152,15 +152,56 @@ class AuthApiService {
           ? AuthUser.fromJson(data['user'] as Map<String, dynamic>)
           : null;
 
+      final tokens = data['tokens'] is Map<String, dynamic>
+          ? AuthTokens.fromJson(data['tokens'] as Map<String, dynamic>)
+          : null;
+
+      if (user != null && tokens != null) {
+        if ((user.accountId == null || user.accountId!.isEmpty) &&
+            tokens.sub != null) {
+          user = user.copyWith(accountId: tokens.sub);
+        }
+      }
+
       if (user != null && (user.fullName.isEmpty || user.fullName == user.email)) {
         if (fullName != null && fullName.isNotEmpty) {
           user = user.copyWith(fullName: fullName);
         }
       }
 
-      final tokens = data['tokens'] is Map<String, dynamic>
-          ? AuthTokens.fromJson(data['tokens'] as Map<String, dynamic>)
-          : null;
+      // Enrich with full user profile from /api/v1/users/me if available
+      if (tokens != null && tokens.accessToken.isNotEmpty) {
+        try {
+          final userDetail = await _client.get(
+            ApiConfig.userMePath,
+            token: tokens.accessToken,
+          );
+          final uData = userDetail['data'] is Map<String, dynamic>
+              ? userDetail['data'] as Map<String, dynamic>
+              : userDetail;
+          final d = AuthUser.fromJson(uData);
+          user = (user ?? d).copyWith(
+            id: d.id.isNotEmpty ? d.id : user?.id,
+            accountId: d.accountId?.isNotEmpty == true
+                ? d.accountId
+                : (user?.accountId ?? tokens.sub),
+            userId: d.userId?.isNotEmpty == true ? d.userId : user?.userId,
+            userProfileId: d.userProfileId?.isNotEmpty == true
+                ? d.userProfileId
+                : user?.userProfileId,
+            fullName: d.fullName.isNotEmpty ? d.fullName : user?.fullName,
+            username: d.username ?? user?.username,
+            gender: d.gender ?? user?.gender,
+            dateOfBirth: d.dateOfBirth ?? user?.dateOfBirth,
+            bio: d.bio ?? user?.bio,
+            avatar: d.avatar ?? user?.avatar,
+            videoCount: d.videoCount,
+            followerCount: d.followerCount,
+            followingCount: d.followingCount,
+            likeCount: d.likeCount,
+          );
+        } catch (_) {}
+      }
 
       return AuthResult(
         isSuccess: true,
@@ -173,7 +214,7 @@ class AuthApiService {
       return AuthResult(
         isSuccess: false,
         statusCode: e.statusCode,
-        error: e.error ?? e.message,
+        error: e.message,
       );
     } catch (e) {
       return AuthResult(
@@ -226,6 +267,13 @@ class AuthApiService {
                   ? AuthTokens.fromJson(decoded)
                   : null));
 
+      if (user != null && tokens != null) {
+        if ((user.accountId == null || user.accountId!.isEmpty) &&
+            tokens.sub != null) {
+          user = user.copyWith(accountId: tokens.sub);
+        }
+      }
+
       // Enrich with full user profile from /api/v1/users/me
       if (tokens != null && tokens.accessToken.isNotEmpty) {
         try {
@@ -239,6 +287,13 @@ class AuthApiService {
           final d = AuthUser.fromJson(uData);
           user = (user ?? d).copyWith(
             id: d.id.isNotEmpty ? d.id : user?.id,
+            accountId: d.accountId?.isNotEmpty == true
+                ? d.accountId
+                : (user?.accountId ?? tokens.sub),
+            userId: d.userId?.isNotEmpty == true ? d.userId : user?.userId,
+            userProfileId: d.userProfileId?.isNotEmpty == true
+                ? d.userProfileId
+                : user?.userProfileId,
             fullName: d.fullName.isNotEmpty ? d.fullName : user?.fullName,
             username: d.username ?? user?.username,
             gender: d.gender ?? user?.gender,
@@ -251,17 +306,26 @@ class AuthApiService {
             likeCount: d.likeCount,
           );
         } catch (_) {
-          if (user != null && user.id.isNotEmpty) {
+          final targetLookupId = user?.userId ?? user?.id;
+          if (targetLookupId != null && targetLookupId.isNotEmpty) {
             try {
               final fallback = await _client.get(
-                '/api/${ApiConfig.apiVersion}/users/${user.id}',
+                '/api/${ApiConfig.apiVersion}/users/$targetLookupId',
                 token: tokens.accessToken,
               );
               final fData = fallback['data'] is Map<String, dynamic>
                   ? fallback['data'] as Map<String, dynamic>
                   : fallback;
               final d = AuthUser.fromJson(fData);
-              user = user.copyWith(
+              user = user?.copyWith(
+                id: d.id.isNotEmpty ? d.id : user.id,
+                accountId: d.accountId?.isNotEmpty == true
+                    ? d.accountId
+                    : (user.accountId ?? tokens.sub),
+                userId: d.userId?.isNotEmpty == true ? d.userId : user.userId,
+                userProfileId: d.userProfileId?.isNotEmpty == true
+                    ? d.userProfileId
+                    : user.userProfileId,
                 fullName: d.fullName.isNotEmpty ? d.fullName : user.fullName,
                 username: d.username ?? user.username,
                 gender: d.gender ?? user.gender,
@@ -289,7 +353,7 @@ class AuthApiService {
       return AuthResult(
         isSuccess: false,
         statusCode: e.statusCode,
-        error: e.error ?? e.message,
+        error: e.message,
       );
     } catch (e) {
       return AuthResult(
@@ -341,7 +405,7 @@ class AuthApiService {
       return AuthResult(
         isSuccess: false,
         statusCode: e.statusCode,
-        error: e.error ?? e.message,
+        error: e.message,
       );
     } catch (e) {
       return AuthResult(

@@ -1,0 +1,196 @@
+import 'package:cookconnect/core/constants/api_codes/ui_i18n_keys.dart';
+
+/// Vietnamese UI text translations
+final Map<String, String> uiMessagesVi = {
+  // Bottom Navigation Bar
+  UiI18nKeys.navHome: 'Trang chủ',
+  UiI18nKeys.navLibrary: 'Thư viện',
+  UiI18nKeys.navInbox: 'Hộp thư',
+  UiI18nKeys.navProfile: 'Cá nhân',
+
+  // Home Screen
+  UiI18nKeys.homeTabFriends: 'Bạn bè',
+  UiI18nKeys.homeTabFollowing: 'Đã follow',
+  UiI18nKeys.homeTabForYou: 'Đề xuất',
+  UiI18nKeys.homeLive: 'Phát trực tiếp',
+  UiI18nKeys.homeSearch: 'Tìm kiếm',
+
+  // Search Screen
+  UiI18nKeys.searchHint: 'Tìm món ăn, nguyên liệu, đầu bếp...',
+  UiI18nKeys.searchSeeMore: 'Xem thêm',
+  UiI18nKeys.searchClearAll: 'Xóa tất cả',
+  UiI18nKeys.searchTrending: 'Tìm kiếm phổ biến',
+  UiI18nKeys.searchTodaySuggestions: 'Gợi ý món hôm nay',
+  UiI18nKeys.searchNoResultsTitle: 'Không tìm thấy món ăn nào',
+  UiI18nKeys.searchNoResultsSubtitle: 'Hãy thử tìm với từ khoá khác hoặc xem danh sách gợi ý',
+  UiI18nKeys.searchResultsCount: 'Tìm thấy {count} món ăn',
+  UiI18nKeys.searchMinuteShort: 'p',
+
+  // Profile & Other User Profile Common
+  UiI18nKeys.profileBack: 'Quay lại',
+  UiI18nKeys.profileShare: 'Chia sẻ',
+  UiI18nKeys.profileMore: 'Thêm',
+  UiI18nKeys.profileLinkCopied: 'Đã sao chép liên kết hồ sơ',
+  UiI18nKeys.profileStatRecipes: 'Công thức',
+  UiI18nKeys.profileStatFollowers: 'Follower',
+  UiI18nKeys.profileStatLikes: 'Thích',
+  UiI18nKeys.profileFollow: 'Theo dõi',
+  UiI18nKeys.profileFollowing: 'Đang theo dõi',
+  UiI18nKeys.profileMessage: 'Nhắn tin',
+  UiI18nKeys.profileFollowedToast: 'Đã theo dõi {name}',
+  UiI18nKeys.profileUnfollowedToast: 'Đã hủy theo dõi {name}',
+  UiI18nKeys.profileLoadingChef: 'Đang tải thông tin đầu bếp...',
+  UiI18nKeys.profilePrivateLikesTitle: 'Danh sách video yêu thích ở chế độ riêng tư',
+  UiI18nKeys.profilePrivateLikesSubtitle: 'Các video mà người dùng này đã thích hiện không công khai.',
+  UiI18nKeys.profileUserNotSharedTitle: 'Người dùng chưa chia sẻ',
+  UiI18nKeys.profileUserNotSharedSubtitle: 'Người dùng này chưa đăng tải bất kỳ công thức hay video nấu ăn nào.',
+  UiI18nKeys.profileActionShare: 'Chia sẻ trang cá nhân này',
+  UiI18nKeys.profileActionReport: 'Báo cáo tài khoản',
+  UiI18nKeys.profileActionBlock: 'Chặn tài khoản',
+  UiI18nKeys.profileReportThankYou: 'Cảm ơn bạn đã gửi báo cáo',
+  UiI18nKeys.profileBlockedToast: 'Đã chặn {name}',
+
+  // Profile Screen
+  UiI18nKeys.profileEditTooltip: 'Sửa thông tin',
+  UiI18nKeys.profileFindFriendsTooltip: 'Tìm bạn bè',
+  UiI18nKeys.profileMenuTooltip: 'Menu',
+  UiI18nKeys.profileAddBio: 'Thêm tiểu sử',
+  UiI18nKeys.profileFeatureInDevelopment: 'Tính năng đang phát triển',
+  UiI18nKeys.profileForgotPasswordTitle: 'Quên mật khẩu?',
+  UiI18nKeys.profileForgotPasswordDesc: 'Nhập Email hoặc Số điện thoại bạn đã đăng ký để nhận liên kết đặt lại mật khẩu.',
+  UiI18nKeys.profileForgotPasswordHint: 'Email hoặc SĐT...',
+  UiI18nKeys.profileCancel: 'Huỷ',
+  UiI18nKeys.profileForgotPasswordSubmit: 'Gửi yêu cầu',
+  UiI18nKeys.profileForgotPasswordSent: 'Hướng dẫn khôi phục mật khẩu đã được gửi đi!',
+  UiI18nKeys.profileGuestHeroTitle: 'Tham gia CookConnect',
+  UiI18nKeys.profileGuestHeroDesc: 'Đăng nhập để lưu công thức nấu ăn, theo dõi các đầu bếp yêu thích và chia sẻ những món ngon của riêng bạn!',
+  UiI18nKeys.profileGuestCta: 'Đăng nhập / Đăng ký ngay',
+  UiI18nKeys.profileGuestBenefitsTitle: 'Đặc quyền khi có tài khoản',
+  UiI18nKeys.profileBenefitSaveTitle: 'Lưu công thức',
+  UiI18nKeys.profileBenefitSaveDesc: 'Bộ sưu tập riêng không giới hạn',
+  UiI18nKeys.profileBenefitSaveMsg: 'Đăng nhập để lưu trữ công thức món ngon!',
+  UiI18nKeys.profileBenefitLikeTitle: 'Yêu thích & Thả tim',
+  UiI18nKeys.profileBenefitLikeDesc: 'Tương tác cùng cộng đồng',
+  UiI18nKeys.profileBenefitLikeMsg: 'Đăng nhập để bày tỏ yêu thích với món ăn!',
+  UiI18nKeys.profileBenefitUploadTitle: 'Đăng tải video',
+  UiI18nKeys.profileBenefitUploadDesc: 'Chia sẻ bí quyết nấu ăn độc quyền',
+  UiI18nKeys.profileBenefitUploadMsg: 'Đăng nhập để đăng video công thức của bạn!',
+  UiI18nKeys.profileBenefitFollowTitle: 'Theo dõi đầu bếp',
+  UiI18nKeys.profileBenefitFollowDesc: 'Cập nhật công thức mới mỗi ngày',
+  UiI18nKeys.profileBenefitFollowMsg: 'Đăng nhập để theo dõi các đầu bếp yêu thích!',
+  UiI18nKeys.profileSectionAccountActivity: 'Tài khoản & Hoạt động',
+  UiI18nKeys.profileSavedDishes: 'Món ăn đã lưu',
+  UiI18nKeys.profileNeedLogin: 'Cần đăng nhập',
+  UiI18nKeys.profileLoginToViewSavedDishes: 'Đăng nhập để xem danh sách món đã lưu',
+  UiI18nKeys.profileLikedVideos: 'Video đã thích',
+  UiI18nKeys.profileLoginToViewLikedVideos: 'Đăng nhập để xem các video bạn đã thích',
+  UiI18nKeys.profileRecentWatchHistory: 'Lịch sử xem gần đây',
+  UiI18nKeys.profileRecentWatchHistorySubtitle: 'Xem lại các công thức đã lướt qua',
+  UiI18nKeys.profileLoginToSyncHistory: 'Đăng nhập để đồng bộ lịch sử xem trên các thiết bị',
+  UiI18nKeys.profileSettingsSubtitle: 'Ngôn ngữ, thông báo, FAQ, bộ nhớ đệm',
+  UiI18nKeys.profileWatermark: 'CookConnect - Nền tảng chia sẻ đam mê ẩm thực',
+  UiI18nKeys.profileVersion: 'Phiên bản 1.0.0 (Build 100)',
+  UiI18nKeys.profileAuthSheetTitle: 'Đăng nhập vào CookConnect',
+  UiI18nKeys.profileAuthSheetDesc: 'Tham gia cộng đồng để chia sẻ niềm đam mê nấu ăn và lưu giữ những món ngon mỗi ngày.',
+  UiI18nKeys.profileAuthOptionCredentials: 'Sử dụng SĐT / Email / Username',
+  UiI18nKeys.profileAuthOptionGoogle: 'Tiếp tục với Google',
+  UiI18nKeys.profileAuthOptionApple: 'Tiếp tục với Apple',
+  UiI18nKeys.profileAuthRegister: 'Đăng ký tài khoản',
+  UiI18nKeys.profileAuthDisclaimer: 'Bằng việc tiếp tục, bạn đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư của CookConnect.',
+  UiI18nKeys.profileMenuPersonalTools: 'Công cụ cá nhân',
+  UiI18nKeys.profileMenuActivityCenter: 'Trung tâm hoạt động',
+  UiI18nKeys.profileMenuSettingsSection: 'Cài đặt',
+  UiI18nKeys.profileMenuSettingsAndPrivacy: 'Cài đặt và quyền riêng tư',
+  UiI18nKeys.profileLikedVideosTitle: 'Các video đã thích',
+  UiI18nKeys.profileLikedVideosSubtitle: 'Chỉ bạn mới có thể nhìn thấy mục này',
+  UiI18nKeys.profileSavedRecipesTitle: 'Chưa có công thức nào được lưu',
+  UiI18nKeys.profileSavedRecipesSubtitle: 'Nhấn biểu tượng lưu trên video để xem lại tại đây',
+
+  // Settings & Privacy Main
+  UiI18nKeys.settingsTitle: 'Cài đặt & Quyền riêng tư',
+
+  // Settings Sections
+  UiI18nKeys.settingsSectionActivity: 'Hoạt động',
+  UiI18nKeys.settingsSectionAccount: 'Tài khoản',
+  UiI18nKeys.settingsSectionDisplaySettings: 'Cài đặt hiển thị',
+  UiI18nKeys.settingsSectionInteractions: 'Tương tác',
+  UiI18nKeys.settingsSectionPreferences: 'Tùy chọn',
+  UiI18nKeys.settingsSectionCacheCellular: 'Bộ nhớ đệm & Dữ liệu di động',
+  UiI18nKeys.settingsSectionSupportPolicies: 'Hỗ trợ & Chính sách',
+  UiI18nKeys.settingsSectionLogin: 'Đăng nhập',
+
+  // Section 1: Activity Items
+  UiI18nKeys.settingsManagePosts: 'Quản lý bài đăng',
+  UiI18nKeys.settingsContentPreferences: 'Tùy chọn nội dung',
+  UiI18nKeys.settingsNotifications: 'Thông báo',
+  UiI18nKeys.settingsScreenTime: 'Thời gian sử dụng',
+  UiI18nKeys.settingsFamily: 'Gia đình',
+
+  // Section 2: Account Items
+  UiI18nKeys.settingsAccount: 'Tài khoản',
+  UiI18nKeys.settingsSecurityPermissions: 'Bảo mật & Quyền',
+  UiI18nKeys.settingsShareProfile: 'Chia sẻ hồ sơ',
+
+  // Section 3: Display Settings Items
+  UiI18nKeys.settingsPrivateAccount: 'Tài khoản riêng tư',
+  UiI18nKeys.settingsRestrictedAccounts: 'Tài khoản hạn chế',
+  UiI18nKeys.settingsBlockedAccounts: 'Tài khoản bị chặn',
+
+  // Section 4: Interactions Items
+  UiI18nKeys.settingsComments: 'Bình luận',
+  UiI18nKeys.settingsMentions: 'Nhắc đến',
+  UiI18nKeys.settingsDirectMessages: 'Tin nhắn trực tiếp',
+  UiI18nKeys.settingsDownloads: 'Tải về',
+  UiI18nKeys.settingsProfileViews: 'Người xem',
+
+  // Section 5: Preferences Items
+  UiI18nKeys.settingsAudienceControl: 'Kiểm soát khán giả',
+  UiI18nKeys.settingsAds: 'Quảng cáo',
+  UiI18nKeys.settingsVideoPlayback: 'Phát video',
+  UiI18nKeys.settingsDisplay: 'Hiển thị',
+  UiI18nKeys.settingsAccessibility: 'Trợ năng',
+
+  // Section 6: Cache & Cellular Data Items
+  UiI18nKeys.settingsOfflineVideos: 'Video ngoại tuyến',
+  UiI18nKeys.settingsFreeUpSpace: 'Giải phóng dung lượng',
+  UiI18nKeys.settingsDataSaver: 'Trình tiết kiệm dữ liệu',
+
+  // Section 7: Support & Policies Items
+  UiI18nKeys.settingsHelpCenter: 'Trung tâm Trợ giúp',
+  UiI18nKeys.settingsPrivacyCenter: 'Trung tâm Quyền riêng tư',
+  UiI18nKeys.settingsTermsPolicies: 'Điều khoản và Chính sách',
+
+  // Section 8: Login Items
+  UiI18nKeys.settingsSwitchAccount: 'Chuyển đổi tài khoản',
+  UiI18nKeys.settingsLogout: 'Đăng xuất',
+
+  // Settings & Language Screen
+  UiI18nKeys.settingsLanguage: 'Ngôn ngữ',
+  UiI18nKeys.settingsLanguageAvailable: 'Ngôn ngữ khả dụng',
+  UiI18nKeys.settingsLanguageComingSoon: 'Sắp ra mắt',
+  UiI18nKeys.settingsLanguageSoonBadge: 'Sắp có',
+  UiI18nKeys.settingsLanguageVietnamese: 'Tiếng Việt',
+  UiI18nKeys.settingsLanguageEnglish: 'English',
+  UiI18nKeys.settingsLanguageChinese: '中文 (Chinese)',
+  UiI18nKeys.settingsLanguageJapanese: '日本語 (Japanese)',
+  UiI18nKeys.settingsLanguageKorean: '한국어 (Korean)',
+  UiI18nKeys.settingsLanguageVietnameseSubtitle: 'Vietnamese',
+  UiI18nKeys.settingsLanguageEnglishSubtitle: 'Tiếng Anh',
+  UiI18nKeys.settingsLanguageChineseSubtitle: 'Tiếng Trung',
+  UiI18nKeys.settingsLanguageJapaneseSubtitle: 'Tiếng Nhật',
+  UiI18nKeys.settingsLanguageKoreanSubtitle: 'Tiếng Hàn',
+
+  // Chat / Inbox Screen
+  UiI18nKeys.chatInboxTitle: 'Hộp thư',
+  UiI18nKeys.chatCreateStory: 'Tạo tin',
+  UiI18nKeys.chatNewActivityTitle: 'Hoạt động mới',
+  UiI18nKeys.chatNewActivitySubtitle: 'Follower mới, lượt thích, bình luận và nhắc đến',
+  UiI18nKeys.chatSystemNotificationTitle: 'Thông báo hệ thống',
+  UiI18nKeys.chatSystemNotificationSubtitle: 'Cập nhật ứng dụng, chính sách và tin từ CookConnect',
+  UiI18nKeys.chatMessagesSectionTitle: 'Tin nhắn',
+  UiI18nKeys.chatSuggestedAccountsTitle: 'Tài khoản được đề xuất',
+  UiI18nKeys.chatSuggestedAccountsExplanation: 'Các tài khoản này được đề xuất dựa trên sở thích ẩm thực, các kết nối bạn bè chung, hoạt động tương tác gần đây, danh bạ hoặc những đầu bếp nổi bật mà bạn có thể quen biết trên CookConnect.',
+  UiI18nKeys.chatUnderstood: 'Đã hiểu',
+  UiI18nKeys.chatYouPrefix: 'Bạn',
+  UiI18nKeys.chatDefaultChef: 'Đầu bếp',
+};

@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'package:cookconnect/features/settings/presentation/pages/settings_screen.dart';
 
 void main() {
+  setUp(() {
+    ApiI18n.currentLanguage = ApiI18n.vi;
+  });
+
+  tearDown(() {
+    ApiI18n.currentLanguage = ApiI18n.vi;
+  });
+
   testWidgets('SettingsScreen renders header, all 8 sections, and handles logout option', (WidgetTester tester) async {
     bool loggedOut = false;
 
@@ -104,6 +113,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(loggedOut, isTrue);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('Đã đăng xuất khỏi tài khoản.'), findsNothing);
   });
 
   testWidgets('Tapping Tài khoản item navigates to AccountScreen', (WidgetTester tester) async {
@@ -129,5 +140,47 @@ void main() {
 
     // Verify back to SettingsScreen
     expect(find.byType(SettingsScreen), findsOneWidget);
+  });
+
+  testWidgets('SettingsScreen dynamically updates all section titles and items on language change', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SettingsScreen(),
+      ),
+    );
+
+    // Initial Vietnamese titles
+    expect(find.text('Cài đặt & Quyền riêng tư'), findsOneWidget);
+    expect(find.text('Hoạt động'), findsOneWidget);
+    expect(find.text('Quản lý bài đăng'), findsOneWidget);
+
+    // Switch to English
+    ApiI18n.currentLanguage = ApiI18n.en;
+    await tester.pumpAndSettle();
+
+    // Verify English titles
+    expect(find.text('Settings & Privacy'), findsOneWidget);
+    expect(find.text('Activity'), findsOneWidget);
+    expect(find.text('Manage posts'), findsOneWidget);
+
+    // Scroll to check other sections in English
+    await tester.drag(find.byType(ListView), const Offset(0, -350));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Display settings'), findsOneWidget);
+    expect(find.text('Private account'), findsOneWidget);
+
+    // Switch back to Vietnamese
+    ApiI18n.currentLanguage = ApiI18n.vi;
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cài đặt & Quyền riêng tư'), findsOneWidget);
+
+    // Scroll back up
+    await tester.drag(find.byType(ListView), const Offset(0, 350));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hoạt động'), findsOneWidget);
+    expect(find.text('Quản lý bài đăng'), findsOneWidget);
   });
 }

@@ -1,3 +1,5 @@
+import 'package:cookconnect/core/constants/api_codes/ui_i18n_keys.dart';
+import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'dart:async';
 import 'package:cookconnect/core/widgets/custom_pull_to_refresh.dart';
 import 'package:flutter/material.dart';
@@ -231,6 +233,9 @@ class ProfileScreenState extends State<ProfileScreen>
 
   void _onAuthChanged() {
     if (mounted) {
+      if (!_isLoggedIn && _menuAnimationController.value > 0) {
+        closeMenu(instant: true);
+      }
       setState(() {});
     }
   }
@@ -306,13 +311,13 @@ class ProfileScreenState extends State<ProfileScreen>
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Row(
+        content: Row(
           children: [
-            Icon(Iconsax.info_circle, color: Colors.white, size: 18),
-            SizedBox(width: 8),
+            const Icon(Iconsax.info_circle, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Tính năng đang phát triển',
+                ApiI18n.text(UiI18nKeys.profileFeatureInDevelopment),
                 style: TextStyle(fontSize: 13.5),
               ),
             ),
@@ -328,20 +333,6 @@ class ProfileScreenState extends State<ProfileScreen>
 
   void _logout() {
     AuthService.instance.logout();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Iconsax.info_circle, color: Colors.white),
-            SizedBox(width: 8),
-            Text('Đã đăng xuất khỏi tài khoản.'),
-          ],
-        ),
-        backgroundColor: Colors.grey[800],
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
   }
 
   void _navigateToEditProfileScreen({bool initialFocusBio = false}) {
@@ -446,13 +437,13 @@ class ProfileScreenState extends State<ProfileScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Iconsax.key, color: Colors.orange),
-            SizedBox(width: 10),
+            const Icon(Iconsax.key, color: Colors.orange),
+            const SizedBox(width: 10),
             Text(
-              'Quên mật khẩu?',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ApiI18n.text(UiI18nKeys.profileForgotPasswordTitle),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -460,8 +451,8 @@ class ProfileScreenState extends State<ProfileScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Nhập Email hoặc Số điện thoại bạn đã đăng ký để nhận liên kết đặt lại mật khẩu.',
+            Text(
+              ApiI18n.text(UiI18nKeys.profileForgotPasswordDesc),
               style: TextStyle(
                 fontSize: 13,
                 height: 1.4,
@@ -472,7 +463,7 @@ class ProfileScreenState extends State<ProfileScreen>
             TextField(
               controller: resetCtrl,
               decoration: InputDecoration(
-                hintText: 'Email hoặc SĐT...',
+                hintText: ApiI18n.text(UiI18nKeys.profileForgotPasswordHint),
                 hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
                 prefixIcon: const Icon(Iconsax.sms, size: 20),
                 border: OutlineInputBorder(
@@ -487,7 +478,7 @@ class ProfileScreenState extends State<ProfileScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Huỷ'),
+            child: Text(ApiI18n.text(UiI18nKeys.profileCancel)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -500,13 +491,13 @@ class ProfileScreenState extends State<ProfileScreen>
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Hướng dẫn khôi phục mật khẩu đã được gửi đi!'),
+                SnackBar(
+                  content: Text(ApiI18n.text(UiI18nKeys.profileForgotPasswordSent)),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             },
-            child: const Text('Gửi yêu cầu'),
+            child: Text(ApiI18n.text(UiI18nKeys.profileForgotPasswordSubmit)),
           ),
         ],
       ),
@@ -524,10 +515,13 @@ class ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final menuWidth = screenWidth * 0.8; // 8 phần tùy chọn (80%)
+    return ValueListenableBuilder<String>(
+      valueListenable: ApiI18n.languageNotifier,
+      builder: (context, currentLanguage, child) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final menuWidth = screenWidth * 0.8; // 8 phần tùy chọn (80%)
 
-    return PopScope(
+        return PopScope(
       canPop: _menuAnimationController.value == 0,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _menuAnimationController.value > 0) {
@@ -559,7 +553,7 @@ class ProfileScreenState extends State<ProfileScreen>
                       leading: _isLoggedIn
                           ? IconButton(
                               icon: const Icon(Iconsax.edit_2, color: Colors.black87),
-                              tooltip: 'Sửa thông tin',
+                              tooltip: ApiI18n.text(UiI18nKeys.profileEditTooltip),
                               onPressed: () => _navigateToEditProfileScreen(),
                             )
                           : null,
@@ -582,39 +576,41 @@ class ProfileScreenState extends State<ProfileScreen>
                                 ),
                               ),
                             )
-                          : const Text(
-                              'Cá nhân',
+                          : Text(
+                              ApiI18n.text(UiI18nKeys.navProfile),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 20,
                                 color: Colors.black87,
                               ),
                             ),
-                      actions: [
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.all(6),
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(Iconsax.user_add, color: Colors.black87, size: 21),
-                          tooltip: 'Tìm bạn bè',
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const FindFriendsScreen(),
+                      actions: _isLoggedIn
+                          ? [
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(),
+                                icon: const Icon(Iconsax.user_add, color: Colors.black87, size: 21),
+                                tooltip: ApiI18n.text(UiI18nKeys.profileFindFriendsTooltip),
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => const FindFriendsScreen(),
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.all(6),
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(Icons.menu_rounded, color: Colors.black87, size: 24),
-                          tooltip: 'Menu',
-                          onPressed: _openMenu,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(),
+                                icon: const Icon(Icons.menu_rounded, color: Colors.black87, size: 24),
+                                tooltip: ApiI18n.text(UiI18nKeys.profileMenuTooltip),
+                                onPressed: _openMenu,
+                              ),
+                              const SizedBox(width: 8),
+                            ]
+                          : null,
                     ),
                     body: _isLoggedIn ? _buildLoggedInView() : _buildGuestView(),
                   ),
@@ -667,6 +663,8 @@ class ProfileScreenState extends State<ProfileScreen>
           );
         },
       ),
+    );
+      },
     );
   }
 
@@ -747,8 +745,8 @@ class ProfileScreenState extends State<ProfileScreen>
                   ],
                 ),
                 const SizedBox(height: 18),
-                const Text(
-                  'Tham gia CookConnect',
+                Text(
+                  ApiI18n.text(UiI18nKeys.profileGuestHeroTitle),
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -758,7 +756,7 @@ class ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Đăng nhập để lưu công thức nấu ăn, theo dõi các đầu bếp yêu thích và chia sẻ những món ngon của riêng bạn!',
+                  ApiI18n.text(UiI18nKeys.profileGuestHeroDesc),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13.5,
@@ -785,12 +783,12 @@ class ProfileScreenState extends State<ProfileScreen>
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Iconsax.login, size: 20),
-                        SizedBox(width: 8),
-                        Text('Đăng nhập / Đăng ký ngay'),
+                        const Icon(Iconsax.login, size: 20),
+                        const SizedBox(width: 8),
+                        Text(ApiI18n.text(UiI18nKeys.profileGuestCta)),
                       ],
                     ),
                   ),
@@ -805,13 +803,13 @@ class ProfileScreenState extends State<ProfileScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Iconsax.magic_star, size: 20, color: Colors.orange),
-                    SizedBox(width: 8),
+                    const Icon(Iconsax.magic_star, size: 20, color: Colors.orange),
+                    const SizedBox(width: 8),
                     Text(
-                      'Đặc quyền khi có tài khoản',
-                      style: TextStyle(
+                      ApiI18n.text(UiI18nKeys.profileGuestBenefitsTitle),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
@@ -827,10 +825,10 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Iconsax.bookmark_2,
                         iconColor: const Color(0xFFE76F51),
                         bgColor: const Color(0xFFFEE8E1),
-                        title: 'Lưu công thức',
-                        subtitle: 'Bộ sưu tập riêng không giới hạn',
+                        title: ApiI18n.text(UiI18nKeys.profileBenefitSaveTitle),
+                        subtitle: ApiI18n.text(UiI18nKeys.profileBenefitSaveDesc),
                         onTap: () => _showAuthBottomSheet(
-                          message: 'Đăng nhập để lưu trữ công thức món ngon!',
+                          message: ApiI18n.text(UiI18nKeys.profileBenefitSaveMsg),
                         ),
                       ),
                     ),
@@ -840,10 +838,10 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Iconsax.heart,
                         iconColor: const Color(0xFFE63946),
                         bgColor: const Color(0xFFFFE5E7),
-                        title: 'Yêu thích & Thả tim',
-                        subtitle: 'Tương tác cùng cộng đồng',
+                        title: ApiI18n.text(UiI18nKeys.profileBenefitLikeTitle),
+                        subtitle: ApiI18n.text(UiI18nKeys.profileBenefitLikeDesc),
                         onTap: () => _showAuthBottomSheet(
-                          message: 'Đăng nhập để bày tỏ yêu thích với món ăn!',
+                          message: ApiI18n.text(UiI18nKeys.profileBenefitLikeMsg),
                         ),
                       ),
                     ),
@@ -857,10 +855,10 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Iconsax.video_add,
                         iconColor: const Color(0xFF2A9D8F),
                         bgColor: const Color(0xFFE2F4F2),
-                        title: 'Đăng tải video',
-                        subtitle: 'Chia sẻ bí quyết nấu ăn độc quyền',
+                        title: ApiI18n.text(UiI18nKeys.profileBenefitUploadTitle),
+                        subtitle: ApiI18n.text(UiI18nKeys.profileBenefitUploadDesc),
                         onTap: () => _showAuthBottomSheet(
-                          message: 'Đăng nhập để đăng video công thức của bạn!',
+                          message: ApiI18n.text(UiI18nKeys.profileBenefitUploadMsg),
                         ),
                       ),
                     ),
@@ -870,11 +868,10 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Iconsax.people,
                         iconColor: const Color(0xFF457B9D),
                         bgColor: const Color(0xFFE3EDF4),
-                        title: 'Theo dõi đầu bếp',
-                        subtitle: 'Cập nhật công thức mới mỗi ngày',
+                        title: ApiI18n.text(UiI18nKeys.profileBenefitFollowTitle),
+                        subtitle: ApiI18n.text(UiI18nKeys.profileBenefitFollowDesc),
                         onTap: () => _showAuthBottomSheet(
-                          message:
-                              'Đăng nhập để theo dõi các đầu bếp yêu thích!',
+                          message: ApiI18n.text(UiI18nKeys.profileBenefitFollowMsg),
                         ),
                       ),
                     ),
@@ -888,38 +885,38 @@ class ProfileScreenState extends State<ProfileScreen>
 
           // 3. User Activity Section (Requires Login)
           _buildMenuSection(
-            title: 'Tài khoản & Hoạt động',
+            title: ApiI18n.text(UiI18nKeys.profileSectionAccountActivity),
             children: [
               _buildModernMenuItem(
                 icon: Iconsax.bookmark,
-                title: 'Món ăn đã lưu',
-                badgeText: 'Cần đăng nhập',
+                title: ApiI18n.text(UiI18nKeys.profileSavedDishes),
+                badgeText: ApiI18n.text(UiI18nKeys.profileNeedLogin),
                 trailingIcon: Iconsax.lock,
                 onTap: () => _showAuthBottomSheet(
-                  message: 'Đăng nhập để xem danh sách món đã lưu',
+                  message: ApiI18n.text(UiI18nKeys.profileLoginToViewSavedDishes),
                 ),
               ),
               _buildModernMenuItem(
                 icon: Iconsax.heart,
-                title: 'Video đã thích',
-                badgeText: 'Cần đăng nhập',
+                title: ApiI18n.text(UiI18nKeys.profileLikedVideos),
+                badgeText: ApiI18n.text(UiI18nKeys.profileNeedLogin),
                 trailingIcon: Iconsax.lock,
                 onTap: () => _showAuthBottomSheet(
-                  message: 'Đăng nhập để xem các video bạn đã thích',
+                  message: ApiI18n.text(UiI18nKeys.profileLoginToViewLikedVideos),
                 ),
               ),
               _buildModernMenuItem(
                 icon: Iconsax.clock,
-                title: 'Lịch sử xem gần đây',
-                subtitle: 'Xem lại các công thức đã lướt qua',
+                title: ApiI18n.text(UiI18nKeys.profileRecentWatchHistory),
+                subtitle: ApiI18n.text(UiI18nKeys.profileRecentWatchHistorySubtitle),
                 onTap: () => _showAuthBottomSheet(
-                  message: 'Đăng nhập để đồng bộ lịch sử xem trên các thiết bị',
+                  message: ApiI18n.text(UiI18nKeys.profileLoginToSyncHistory),
                 ),
               ),
               _buildModernMenuItem(
                 icon: Iconsax.setting_2,
-                title: 'Cài đặt & Quyền riêng tư',
-                subtitle: 'Ngôn ngữ, thông báo, FAQ, bộ nhớ đệm',
+                title: ApiI18n.text(UiI18nKeys.settingsTitle),
+                subtitle: ApiI18n.text(UiI18nKeys.profileSettingsSubtitle),
                 onTap: _navigateToSettings,
               ),
             ],
@@ -931,12 +928,12 @@ class ProfileScreenState extends State<ProfileScreen>
             child: Column(
               children: [
                 Text(
-                  'CookConnect - Nền tảng chia sẻ đam mê ẩm thực',
+                  ApiI18n.text(UiI18nKeys.profileWatermark),
                   style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Phiên bản 1.0.0 (Build 100)',
+                  ApiI18n.text(UiI18nKeys.profileVersion),
                   style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                 ),
               ],
@@ -1055,7 +1052,7 @@ class ProfileScreenState extends State<ProfileScreen>
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left Column: Tên người dùng to ra + @username + Gender badge
+              // Left Column: Tên người dùng to ra + @username
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1070,64 +1067,32 @@ class ProfileScreenState extends State<ProfileScreen>
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          _userHandle,
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        if (user?.gender != null &&
-                            user!.gender!.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withValues(
-                                alpha: 0.12,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              user.gender == 'MALE'
-                                  ? 'Nam ♂'
-                                  : (user.gender == 'FEMALE'
-                                        ? 'Nữ ♀'
-                                        : 'Khác'),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: primaryColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      _userHandle,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     // Social stats directly below Username (no box, no following)
                     Row(
                       children: [
-                        _buildInlineStatItem('$_videoCount', 'Món ăn'),
-                        const SizedBox(width: 22),
+                        _buildInlineStatItem('$_videoCount', ApiI18n.text(UiI18nKeys.profileStatRecipes)),
+                        const SizedBox(width: 28),
                         _buildInlineStatItem(
                           _followerCount >= 1000
                               ? '${(_followerCount / 1000).toStringAsFixed(1)}K'
                               : '$_followerCount',
-                          'Follower',
+                          ApiI18n.text(UiI18nKeys.profileStatFollowers),
                         ),
-                        const SizedBox(width: 22),
+                        const SizedBox(width: 28),
                         _buildInlineStatItem(
                           _likeCount >= 1000
                               ? '${(_likeCount / 1000).toStringAsFixed(1)}K'
                               : '$_likeCount',
-                          'Thích',
+                          ApiI18n.text(UiI18nKeys.profileStatLikes),
                         ),
                       ],
                     ),
@@ -1242,7 +1207,7 @@ class ProfileScreenState extends State<ProfileScreen>
                     Icon(Iconsax.add, size: 13, color: primaryColor),
                     const SizedBox(width: 4),
                     Text(
-                      'Thêm tiểu sử',
+                      ApiI18n.text(UiI18nKeys.profileAddBio),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1523,8 +1488,8 @@ class ProfileScreenState extends State<ProfileScreen>
             child: Icon(Iconsax.profile_circle5, size: 36, color: primaryColor),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Đăng nhập vào CookConnect',
+          Text(
+            ApiI18n.text(UiI18nKeys.profileAuthSheetTitle),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -1533,8 +1498,7 @@ class ProfileScreenState extends State<ProfileScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            message ??
-                'Tham gia cộng đồng để chia sẻ niềm đam mê nấu ăn và lưu giữ những món ngon mỗi ngày.',
+            message ?? ApiI18n.text(UiI18nKeys.profileAuthSheetDesc),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
@@ -1551,7 +1515,7 @@ class ProfileScreenState extends State<ProfileScreen>
               size: 22,
               color: primaryColor,
             ),
-            title: 'Sử dụng SĐT / Email / Username',
+            title: ApiI18n.text(UiI18nKeys.profileAuthOptionCredentials),
             onTap: () {
               Navigator.pop(context);
               _navigateToLoginScreen();
@@ -1562,7 +1526,7 @@ class ProfileScreenState extends State<ProfileScreen>
           // Google Login Button with authentic 4-color Google logo
           _buildAuthOptionButton(
             leading: const GoogleLogoWidget(size: 22),
-            title: 'Tiếp tục với Google',
+            title: ApiI18n.text(UiI18nKeys.profileAuthOptionGoogle),
             onTap: () {
               Navigator.pop(context);
               _showSocialUnderDevelopment('Google');
@@ -1577,7 +1541,7 @@ class ProfileScreenState extends State<ProfileScreen>
               size: 22,
               color: Colors.black,
             ),
-            title: 'Tiếp tục với Apple',
+            title: ApiI18n.text(UiI18nKeys.profileAuthOptionApple),
             onTap: () {
               Navigator.pop(context);
               _showSocialUnderDevelopment('Apple');
@@ -1597,7 +1561,7 @@ class ProfileScreenState extends State<ProfileScreen>
                 },
                 icon: Icon(Iconsax.key, size: 16, color: Colors.grey[600]),
                 label: Text(
-                  'Quên mật khẩu?',
+                  ApiI18n.text(UiI18nKeys.profileForgotPasswordTitle),
                   style: TextStyle(
                     color: Colors.grey[700],
                     fontSize: 13,
@@ -1620,7 +1584,7 @@ class ProfileScreenState extends State<ProfileScreen>
                 },
                 icon: Icon(Iconsax.user_add, size: 16, color: primaryColor),
                 label: Text(
-                  'Đăng ký tài khoản',
+                  ApiI18n.text(UiI18nKeys.profileAuthRegister),
                   style: TextStyle(
                     color: primaryColor,
                     fontSize: 13,
@@ -1641,7 +1605,7 @@ class ProfileScreenState extends State<ProfileScreen>
 
           const SizedBox(height: 16),
           Text(
-            'Bằng việc tiếp tục, bạn đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư của CookConnect.',
+            ApiI18n.text(UiI18nKeys.profileAuthDisclaimer),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,
@@ -1707,7 +1671,7 @@ class ProfileScreenState extends State<ProfileScreen>
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
                 child: Text(
-                  'Công cụ cá nhân',
+                  ApiI18n.text(UiI18nKeys.profileMenuPersonalTools),
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
@@ -1718,7 +1682,7 @@ class ProfileScreenState extends State<ProfileScreen>
               ),
               _buildDrawerMenuItem(
                 icon: Iconsax.activity,
-                title: 'Trung tâm hoạt động',
+                title: ApiI18n.text(UiI18nKeys.profileMenuActivityCenter),
                 onTap: () {
                   _closeMenu();
                   Navigator.of(context).push(
@@ -1735,7 +1699,7 @@ class ProfileScreenState extends State<ProfileScreen>
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
                 child: Text(
-                  'Cài đặt',
+                  ApiI18n.text(UiI18nKeys.profileMenuSettingsSection),
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
@@ -1746,7 +1710,7 @@ class ProfileScreenState extends State<ProfileScreen>
               ),
               _buildDrawerMenuItem(
                 icon: Iconsax.setting_2,
-                title: 'Cài đặt và quyền riêng tư',
+                title: ApiI18n.text(UiI18nKeys.profileMenuSettingsAndPrivacy),
                 onTap: () {
                   _closeMenu();
                   _navigateToSettings();
@@ -1965,7 +1929,7 @@ class _ProfileLikedTabState extends State<_ProfileLikedTab>
           Icon(Iconsax.heart, size: 48, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           Text(
-            'Các video đã thích',
+            ApiI18n.text(UiI18nKeys.profileLikedVideosTitle),
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -1974,7 +1938,7 @@ class _ProfileLikedTabState extends State<_ProfileLikedTab>
           ),
           const SizedBox(height: 4),
           Text(
-            'Chỉ bạn mới có thể nhìn thấy mục này',
+            ApiI18n.text(UiI18nKeys.profileLikedVideosSubtitle),
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey.shade500,
@@ -2015,7 +1979,7 @@ class _ProfileSavedTabState extends State<_ProfileSavedTab>
           Icon(Iconsax.bookmark, size: 48, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           Text(
-            'Chưa có công thức nào được lưu',
+            ApiI18n.text(UiI18nKeys.profileSavedRecipesTitle),
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -2024,7 +1988,7 @@ class _ProfileSavedTabState extends State<_ProfileSavedTab>
           ),
           const SizedBox(height: 4),
           Text(
-            'Nhấn biểu tượng lưu trên video để xem lại tại đây',
+            ApiI18n.text(UiI18nKeys.profileSavedRecipesSubtitle),
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey.shade500,

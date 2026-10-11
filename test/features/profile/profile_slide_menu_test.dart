@@ -1,10 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:iconsax/iconsax.dart';
+import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 import 'package:cookconnect/features/main/presentation/pages/main_screen.dart';
 import 'package:cookconnect/features/profile/presentation/pages/profile_screen.dart';
 
 void main() {
-  testWidgets('ProfileScreen 8/2 slide menu renders section titles and handles slide actions', (tester) async {
+  setUp(() {
+    AuthService.instance.logout();
+  });
+
+  tearDown(() {
+    AuthService.instance.logout();
+  });
+
+  testWidgets('Guest (unauthenticated) ProfileScreen does not display hamburger menu or person icon in header', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ProfileScreen(),
+      ),
+    );
+
+    // Guest header: title 'Cá nhân' is displayed
+    expect(find.text('Cá nhân'), findsOneWidget);
+
+    // Icons must NOT be present in header when not logged in
+    expect(find.byTooltip('Menu'), findsNothing);
+    expect(find.byIcon(Icons.menu_rounded), findsNothing);
+    expect(find.byTooltip('Tìm bạn bè'), findsNothing);
+    expect(find.byIcon(Iconsax.user_add), findsNothing);
+    expect(find.byTooltip('Sửa thông tin'), findsNothing);
+    expect(find.byIcon(Iconsax.edit_2), findsNothing);
+  });
+
+  testWidgets('ProfileScreen 8/2 slide menu renders section titles and handles slide actions when logged in', (tester) async {
+    AuthService.instance.setGuestDemo(name: 'Test User', email: 'test@example.com');
+
     await tester.pumpWidget(
       const MaterialApp(
         home: ProfileScreen(),
@@ -36,6 +67,8 @@ void main() {
   });
 
   testWidgets('MainScreen automatically closes profile options menu when switching to another tab', (tester) async {
+    AuthService.instance.setGuestDemo(name: 'Test User', email: 'test@example.com');
+
     await tester.pumpWidget(
       const MaterialApp(
         home: MainScreen(),
@@ -69,5 +102,48 @@ void main() {
 
     // Options menu must be closed when returning to Profile tab
     expect(find.text('Công cụ cá nhân'), findsNothing);
+  });
+
+  testWidgets('Logging out from ProfileScreen via SettingsScreen does not display SnackBar notification', (tester) async {
+    AuthService.instance.setGuestDemo(name: 'Test User', email: 'test@example.com');
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ProfileScreen(),
+      ),
+    );
+
+    // Open options menu
+    final menuButtonFinder = find.byTooltip('Menu');
+    expect(menuButtonFinder, findsOneWidget);
+    await tester.tap(menuButtonFinder);
+    await tester.pumpAndSettle();
+
+    // Tap Cài đặt và quyền riêng tư
+    final settingsOption = find.text('Cài đặt và quyền riêng tư');
+    expect(settingsOption, findsOneWidget);
+    await tester.tap(settingsOption);
+    await tester.pumpAndSettle();
+
+    // In SettingsScreen, scroll to Đăng nhập section
+    await tester.drag(find.byType(ListView), const Offset(0, -1000));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -1000));
+    await tester.pumpAndSettle();
+
+    // Tap Đăng xuất
+    expect(find.text('Đăng xuất'), findsOneWidget);
+    await tester.tap(find.text('Đăng xuất'));
+    await tester.pumpAndSettle();
+
+    // Returned to ProfileScreen: verify no SnackBar or message is shown
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('Đã đăng xuất khỏi tài khoản.'), findsNothing);
+
+    // Also verify header icons are removed upon logout
+    expect(find.byTooltip('Menu'), findsNothing);
+    expect(find.byIcon(Icons.menu_rounded), findsNothing);
+    expect(find.byTooltip('Tìm bạn bè'), findsNothing);
+    expect(find.byIcon(Iconsax.user_add), findsNothing);
   });
 }

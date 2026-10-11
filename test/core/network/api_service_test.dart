@@ -71,6 +71,9 @@ void main() {
       final user = AuthUser.fromJson(json);
 
       expect(user.id, 'user-entity-1');
+      expect(user.userId, 'user-entity-1');
+      expect(user.accountId, 'auth-sub-1');
+      expect(user.userProfileId, 'profile-1');
       expect(user.fullName, 'Chef Linh Đan');
       expect(user.username, 'chef_dan');
       expect(user.bio, 'Yêu nấu ăn và làm bánh');
@@ -93,11 +96,50 @@ void main() {
       final user = AuthUser.fromJson(json);
 
       expect(user.id, 'auth-sub-2');
+      expect(user.accountId, 'auth-sub-2');
+      expect(user.userId, isNull);
+      expect(user.userProfileId, isNull);
       expect(user.email, 'simpleuser@example.com');
       expect(user.fullName, 'simpleuser');
       expect(user.username, isNull);
       expect(user.bio, isNull);
       expect(user.followerCount, 0);
+    });
+
+    test('Disambiguates accountId, userId, and userProfileId and persists them via toJson', () {
+      final user = AuthUser(
+        id: 'usr-200',
+        accountId: 'acc-100',
+        userId: 'usr-200',
+        userProfileId: 'prof-300',
+        email: 'chef@example.com',
+        fullName: 'Chef Hai',
+      );
+
+      expect(user.accountId, 'acc-100');
+      expect(user.userId, 'usr-200');
+      expect(user.userProfileId, 'prof-300');
+
+      final serialized = user.toJson();
+      expect(serialized['accountId'], 'acc-100');
+      expect(serialized['userId'], 'usr-200');
+      expect(serialized['userProfileId'], 'prof-300');
+
+      final restored = AuthUser.fromJson(serialized);
+      expect(restored.accountId, 'acc-100');
+      expect(restored.userId, 'usr-200');
+      expect(restored.userProfileId, 'prof-300');
+      expect(restored.id, 'usr-200');
+    });
+
+    test('AuthTokens.sub extracts accountId claim from JWT access token payload', () {
+      final jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhY2MtdXVpZC05OTkiLCJleHAiOjE5OTk5OTk5OTl9.signature';
+      final tokens = AuthTokens(
+        accessToken: jwt,
+        refreshToken: 'refresh-token',
+      );
+
+      expect(tokens.sub, 'acc-uuid-999');
     });
   });
 
@@ -318,7 +360,7 @@ void main() {
               "message": "AUTH.LOGIN_SUCCESS",
               "data": {
                 "user": {
-                  "id": "user-uuid-123",
+                  "id": "acc-uuid-auth-1",
                   "email": "chef.linh@example.com",
                   "roles": ["USER"],
                   "status": "ACTIVE"
@@ -341,9 +383,11 @@ void main() {
               "success": true,
               "statusCode": 200,
               "data": {
-                "id": "user-uuid-123",
+                "id": "usr-uuid-user-2",
+                "userId": "acc-uuid-auth-1",
                 "username": "linhdan_cook",
                 "profile": {
+                  "id": "prof-uuid-3",
                   "displayName": "Chef Linh Đan",
                   "gender": "FEMALE",
                   "bio": "Yêu ẩm thực Việt"
@@ -375,6 +419,10 @@ void main() {
       expect(result.user?.gender, 'FEMALE');
       expect(result.user?.followerCount, 2450);
       expect(result.user?.videoCount, 18);
+      expect(result.user?.accountId, 'acc-uuid-auth-1');
+      expect(result.user?.userId, 'usr-uuid-user-2');
+      expect(result.user?.userProfileId, 'prof-uuid-3');
+      expect(result.user?.id, 'usr-uuid-user-2');
       expect(result.tokens?.accessToken, 'access-token-abc');
     });
 

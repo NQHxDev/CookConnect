@@ -8,6 +8,6 @@ final Map<String, String> userMessagesEn = {
   UserApiErrorCode.userNotFound: 'User not found.',
   UserApiErrorCode.usernameAlreadyTaken: 'Username is already taken. Please choose another.',
   UserApiErrorCode.invalidUsernameFormat: 'Invalid username format (3-30 chars, letters, numbers, underscores).',
-  UserApiErrorCode.userAlreadyExists: 'This email is already registered.',
+  UserApiErrorCode.userAlreadyExists: 'Email is already registered in the system.',
   UserApiSuccessCode.uploadAvatarSuccess: 'Avatar uploaded successfully.',
 };

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:cookconnect/core/constants/api_codes/ui_i18n_keys.dart';
+import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'package:cookconnect/core/widgets/heart_animation_overlay.dart';
 import 'package:cookconnect/features/recipe/presentation/widgets/comments_bottom_sheet.dart';
 import 'package:cookconnect/features/recipe/presentation/pages/search_screen.dart';
@@ -31,82 +33,89 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        toolbarHeight: 50,
-        titleSpacing: 8,
-        title: Row(
-          children: [
-            // Live icon (leftmost)
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              icon: const Icon(
-                Iconsax.video_square,
-                color: Colors.white,
-                size: 22,
-              ),
-              onPressed: () {},
-            ),
-            // Scrollable tabs in center
-            Expanded(
-              child: TabBar(
-                controller: _tabController,
-                indicatorColor: Colors.white,
-                indicatorWeight: 2.0,
-                indicatorSize: TabBarIndicatorSize.label,
-                dividerColor: Colors.transparent,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
-                labelStyle: const TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.2,
-                ),
-                isScrollable: true,
-                tabAlignment: TabAlignment.center,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 10),
-                splashFactory: NoSplash.splashFactory,
-                overlayColor: WidgetStateProperty.all(Colors.transparent),
-                tabs: const [
-                  Tab(text: 'Bạn bè'),
-                  Tab(text: 'Đã follow'),
-                  Tab(text: 'Đề xuất'),
-                ],
-              ),
-            ),
-            // Search icon (rightmost)
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              icon: const Icon(
-                Iconsax.search_normal_1,
-                color: Colors.white,
-                size: 20,
-              ),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SearchScreen(),
+    return ValueListenableBuilder<String>(
+      valueListenable: ApiI18n.languageNotifier,
+      builder: (context, currentLanguage, child) {
+        return Scaffold(
+          extendBodyBehindAppBar: true,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            toolbarHeight: 50,
+            titleSpacing: 8,
+            title: Row(
+              children: [
+                // Live icon (leftmost)
+                IconButton(
+                  tooltip: ApiI18n.text(UiI18nKeys.homeLive),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  icon: const Icon(
+                    Iconsax.video_square,
+                    color: Colors.white,
+                    size: 22,
                   ),
-                );
-              },
+                  onPressed: () {},
+                ),
+                // Scrollable tabs in center
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController,
+                    indicatorColor: Colors.white,
+                    indicatorWeight: 2.0,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    dividerColor: Colors.transparent,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
+                    labelStyle: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.2,
+                    ),
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.center,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 10),
+                    splashFactory: NoSplash.splashFactory,
+                    overlayColor: WidgetStateProperty.all(Colors.transparent),
+                    tabs: [
+                      Tab(text: ApiI18n.text(UiI18nKeys.homeTabFriends)),
+                      Tab(text: ApiI18n.text(UiI18nKeys.homeTabFollowing)),
+                      Tab(text: ApiI18n.text(UiI18nKeys.homeTabForYou)),
+                    ],
+                  ),
+                ),
+                // Search icon (rightmost)
+                IconButton(
+                  tooltip: ApiI18n.text(UiI18nKeys.homeSearch),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  icon: const Icon(
+                    Iconsax.search_normal_1,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SearchScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [_buildVideoFeed(), _buildVideoFeed(), _buildVideoFeed()],
-      ),
+          ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [_buildVideoFeed(), _buildVideoFeed(), _buildVideoFeed()],
+          ),
+        );
+      },
     );
   }
 

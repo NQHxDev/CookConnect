@@ -29,6 +29,7 @@ class ApiConfig {
   static String get refreshPath => '/api/$apiVersion/auth/refresh';
   static String get mePath => '/api/$apiVersion/auth/me';
   static String get userMePath => '/api/$apiVersion/users/me';
+  static String get userSuggestionsPath => '/api/$apiVersion/users/suggestions';
 
   /// Helper getters for full endpoint URLs
   static String get apiBaseUrl => '$baseUrl/api/$apiVersion';
@@ -44,4 +45,5 @@ class ApiConfig {
   static String get refreshUrl => '$baseUrl$refreshPath';
   static String get meUrl => '$baseUrl$mePath';
   static String get userMeUrl => '$baseUrl$userMePath';
+  static String get userSuggestionsUrl => '$baseUrl$userSuggestionsPath';
 }

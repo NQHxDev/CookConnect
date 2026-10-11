@@ -5,6 +5,7 @@ import 'package:cookconnect/core/network/api_client.dart';
 import 'package:cookconnect/core/network/api_exception.dart';
 import 'package:cookconnect/features/auth/data/models/auth_result.dart';
 import 'package:cookconnect/features/auth/data/models/auth_user.dart';
+import 'package:cookconnect/features/auth/data/models/auth_tokens.dart';
 
 class HealthCheckResult {
   final bool isHealthy;
@@ -363,11 +364,19 @@ class UserApiService {
           ? decoded['data'] as Map<String, dynamic>
           : decoded;
 
-      final authUser = data['user'] is Map<String, dynamic>
+      var authUser = data['user'] is Map<String, dynamic>
           ? AuthUser.fromJson(data['user'] as Map<String, dynamic>)
           : (data['email'] != null || data['sub'] != null || data['id'] != null
               ? AuthUser.fromJson(data)
               : null);
+
+      if (authUser != null && (authUser.accountId == null || authUser.accountId!.isEmpty)) {
+        final tokenPayload = AuthTokens.getJwtPayload(accessToken);
+        final sub = tokenPayload?['sub']?.toString();
+        if (sub != null && sub.isNotEmpty) {
+          authUser = authUser.copyWith(accountId: sub);
+        }
+      }
 
       return AuthResult(
         isSuccess: true,

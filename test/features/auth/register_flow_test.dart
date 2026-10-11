@@ -141,6 +141,50 @@ void main() {
       expect(find.text('Nhập mã xác thực'), findsOneWidget);
       expect(find.text('Xác thực OTP'), findsWidgets);
     });
+
+    testWidgets('Displays localized error message when email is already registered (400 / 409 AUTH.EMAIL_ALREADY_EXISTS)', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final mockClient = MockClient((request) async {
+        if (request.url.path == '/api/v1/auth/register/send-otp') {
+          return http.Response(
+            '{"success":false,"statusCode":400,"message":"AUTH.EMAIL_ALREADY_EXISTS","error":"Bad Request","errorCode":"AUTH.EMAIL_ALREADY_EXISTS"}',
+            400,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final mockApiService = ApiService(client: mockClient);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RegisterEmailScreen(
+            apiService: mockApiService,
+            initialTabIndex: 1,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Enter duplicate email
+      final emailField = find.widgetWithText(TextFormField, '').last;
+      await tester.enterText(emailField, 'existing@example.com');
+      await tester.pumpAndSettle();
+
+      // Tap submit
+      await tester.tap(find.text('Tiếp tục'));
+      await tester.pumpAndSettle();
+
+      // Verify that localized Vietnamese message is displayed inline and NO SnackBar popup exists
+      expect(find.text('Bad Request'), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.text('Email đã được đăng ký trong hệ thống'), findsOneWidget);
+    });
   });
 
   group('RegisterOtpScreen Tests', () {
@@ -272,24 +316,46 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Enter mismatched passwords
       final textFields = find.byType(TextFormField);
       expect(textFields, findsNWidgets(2));
 
+      final completeBtnFinder = find.widgetWithText(ElevatedButton, 'Hoàn tất đăng ký');
+      final ElevatedButton initialBtn = tester.widget(completeBtnFinder);
+      expect(initialBtn.onPressed, isNull);
+
+      // Verify visual requirements list rendered
+      expect(find.text('Yêu cầu mật khẩu:'), findsOneWidget);
+      expect(find.text('Tối thiểu 6 ký tự'), findsOneWidget);
+      expect(find.text('Có chữ hoa, chữ thường và chữ số'), findsOneWidget);
+      expect(find.text('Có ký tự đặc biệt (!@#\$%^&*...)'), findsOneWidget);
+
+      // Enter password lacking uppercase or special char
       await tester.enterText(textFields.at(0), 'password123');
-      await tester.enterText(textFields.at(1), 'password999');
-      await tester.pump();
-
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Hoàn tất đăng ký'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Mật khẩu xác nhận không trùng khớp'), findsOneWidget);
-
-      // Fix confirm password to match
       await tester.enterText(textFields.at(1), 'password123');
       await tester.pump();
 
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Hoàn tất đăng ký'));
+      // Button remains disabled because uppercase & special char are missing
+      final ElevatedButton invalidPolicyBtn = tester.widget(completeBtnFinder);
+      expect(invalidPolicyBtn.onPressed, isNull);
+
+      // Enter password meeting all requirements: min 6 chars, uppercase, lowercase, digit, special char
+      await tester.enterText(textFields.at(0), 'Password@123');
+      await tester.enterText(textFields.at(1), 'Password@999');
+      await tester.pump();
+
+      // Button is disabled because confirm password does not match
+      final ElevatedButton mismatchedBtn = tester.widget(completeBtnFinder);
+      expect(mismatchedBtn.onPressed, isNull);
+
+      // Fix confirm password to match
+      await tester.enterText(textFields.at(1), 'Password@123');
+      await tester.pump();
+
+      // Button is now enabled
+      final ElevatedButton enabledBtn = tester.widget(completeBtnFinder);
+      expect(enabledBtn.onPressed, isNotNull);
+
+      await tester.tap(completeBtnFinder);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
