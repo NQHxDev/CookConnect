@@ -1,67 +1,82 @@
+APP ?= customer
+APP_DIR = apps/$(APP)
+
+# Parse positional arguments for targets like:
+#   make customer [device]
+#   make supplier [device]
+#   make run [customer|supplier] [device]
+#   make run [device]
+FIRST_GOAL := $(firstword $(MAKECMDGOALS))
+
+ifeq ($(FIRST_GOAL),customer)
+  DEVICE := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  $(eval $(DEVICE):;@:)
+else ifeq ($(FIRST_GOAL),supplier)
+  DEVICE := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  $(eval $(DEVICE):;@:)
+endif
+
+RUN_DEVICE_FLAG = $(if $(DEVICE),-d $(DEVICE),$(if $(shell adb devices 2>/dev/null | grep -w device | head -1 | awk '{print $$1}'),-d $(shell adb devices 2>/dev/null | grep -w device | head -1 | awk '{print $$1}'),))
+
 # Default target
 .PHONY: help
 help:
-	@echo "CookConnect - Flutter Makefile"
+	@echo "CookConnect - Monorepo Flutter Makefile"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make customer [device]          - Run customer app (e.g. make customer iPhonee)"
+	@echo "  make supplier [device]          - Run supplier app (e.g. make supplier iPhonee)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make run          - Run app on connected device (debug mode)"
-	@echo "  make run-release  - Run app on connected device (release mode)"
-	@echo "  make run-profile  - Run app on connected device (profile mode)"
-	@echo "  make build        - Build APK (release)"
-	@echo "  make build-debug  - Build APK (debug)"
-	@echo "  make build-bundle - Build Android App Bundle"
-	@echo "  make install      - Install APK to device"
-	@echo "  make devices      - List connected devices"
-	@echo "  make doctor       - Run flutter doctor"
-	@echo "  make clean        - Clean build artifacts"
-	@echo "  make deps         - Get dependencies"
-	@echo "  make format       - Format code"
-	@echo "  make lint         - Run linter"
-	@echo "  make test         - Run tests"
-	@echo "  make check        - Run format, lint, and test"
+	@echo "  make customer [device] - Run customer app (debug mode)"
+	@echo "  make supplier [device] - Run supplier app (debug mode)"
+	@echo "  make install           - Build & Install release APK for both apps"
+	@echo "  make install-debug     - Build & Install debug APK for both apps"
+	@echo "  make devices           - List connected devices"
+	@echo "  make doctor            - Run flutter doctor"
+	@echo "  make clean             - Clean build artifacts"
+	@echo "  make deps              - Get dependencies"
+	@echo "  make format            - Format code"
+	@echo "  make lint              - Run linter"
+	@echo "  make test              - Run tests"
+	@echo "  make check             - Run format, lint, and test"
 
-# Run app on device
-.PHONY: run
-run:
-	@echo "Running app on device (debug mode)..."
-	flutter run -d $(shell adb devices | grep -w device | head -1 | awk '{print $$1}')
+# Run app directly for customer
+.PHONY: customer
+customer:
+ifeq ($(FIRST_GOAL),customer)
+	@echo "Running customer $(if $(DEVICE),on device $(DEVICE)...,app...)"
+	cd apps/customer && flutter run $(RUN_DEVICE_FLAG)
+endif
 
-.PHONY: run-release
-run-release:
-	@echo "Running app on device (release mode)..."
-	flutter run --release -d $(shell adb devices | grep -w device | head -1 | awk '{print $$1}')
+# Run app directly for supplier
+.PHONY: supplier
+supplier:
+ifeq ($(FIRST_GOAL),supplier)
+	@echo "Running supplier $(if $(DEVICE),on device $(DEVICE)...,app...)"
+	cd apps/supplier && flutter run $(RUN_DEVICE_FLAG)
+endif
 
-.PHONY: run-profile
-run-profile:
-	@echo "Running app on device (profile mode)..."
-	flutter run --profile -d $(shell adb devices | grep -w device | head -1 | awk '{print $$1}')
-
-# Build APK
-.PHONY: build
-build:
-	@echo "Building release APK..."
-	flutter build apk --release
-
-.PHONY: build-debug
-build-debug:
-	@echo "Building debug APK..."
-	flutter build apk --debug
-
-.PHONY: build-bundle
-build-bundle:
-	@echo "Building Android App Bundle..."
-	flutter build appbundle --release
-
-# Install APK to device
+# Install APK to device for both apps
 .PHONY: install
-install: build
-	@echo "Installing APK to device..."
-	adb install -r build/app/outputs/flutter-apk/app-release.apk
+install:
+	@echo "Building & Installing Customer APK (release)..."
+	cd apps/customer && flutter build apk --release
+	adb install -r apps/customer/build/app/outputs/flutter-apk/app-release.apk
+	@echo "Building & Installing Supplier APK (release)..."
+	cd apps/supplier && flutter build apk --release
+	adb install -r apps/supplier/build/app/outputs/flutter-apk/app-release.apk
+	@echo "Successfully installed both apps!"
 
 .PHONY: install-debug
-install-debug: build-debug
-	@echo "Installing debug APK to device..."
-	adb install -r build/app/outputs/flutter-apk/app-debug.apk
+install-debug:
+	@echo "Building & Installing Customer APK (debug)..."
+	cd apps/customer && flutter build apk --debug
+	adb install -r apps/customer/build/app/outputs/flutter-apk/app-debug.apk
+	@echo "Building & Installing Supplier APK (debug)..."
+	cd apps/supplier && flutter build apk --debug
+	adb install -r apps/supplier/build/app/outputs/flutter-apk/app-debug.apk
+	@echo "Successfully installed both debug apps!"
 
 # Device management
 .PHONY: devices
@@ -82,47 +97,47 @@ doctor:
 
 .PHONY: deps
 deps:
-	@echo "Getting dependencies..."
-	flutter pub get
+	@echo "Getting dependencies for $(APP)..."
+	cd $(APP_DIR) && flutter pub get
 
 .PHONY: upgrade
 upgrade:
-	@echo "Upgrading dependencies..."
-	flutter pub upgrade
+	@echo "Upgrading dependencies for $(APP)..."
+	cd $(APP_DIR) && flutter pub upgrade
 
 # Code quality
 .PHONY: format
 format:
-	@echo "Formatting code..."
-	dart format lib/ test/
+	@echo "Formatting code for $(APP)..."
+	cd $(APP_DIR) && dart format lib/ test/
 
 .PHONY: lint
 lint:
-	@echo "Running linter..."
-	flutter analyze
+	@echo "Running linter for $(APP)..."
+	cd $(APP_DIR) && flutter analyze
 
 .PHONY: test
 test:
-	@echo "Running tests..."
-	flutter test
+	@echo "Running tests for $(APP)..."
+	cd $(APP_DIR) && flutter test
 
 .PHONY: check
 check: format lint test
-	@echo "All checks passed!"
+	@echo "All checks passed for $(APP)!"
 
 # Clean
 .PHONY: clean
 clean:
-	@echo "Cleaning build artifacts..."
-	flutter clean
-	rm -rf build/
+	@echo "Cleaning build artifacts for $(APP)..."
+	cd $(APP_DIR) && flutter clean
+	rm -rf $(APP_DIR)/build/
 
 .PHONY: clean-all
 clean-all: clean
-	@echo "Deep cleaning..."
-	rm -rf .dart_tool/
-	rm -rf .packages
-	flutter pub get
+	@echo "Deep cleaning for $(APP)..."
+	rm -rf $(APP_DIR)/.dart_tool/
+	rm -rf $(APP_DIR)/.packages
+	cd $(APP_DIR) && flutter pub get
 
 # Hot reload/restart helpers
 .PHONY: hot-reload

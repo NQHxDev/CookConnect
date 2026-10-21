@@ -50,5 +50,9 @@
       "editor.defaultFormatter": "esbenp.prettier-vscode"
    },
    "cSpell.words": ["cookconnect", "khóa"],
-   "java.compile.nullAnalysis.mode": "automatic"
+   "java.compile.nullAnalysis.mode": "automatic",
+   "[dart]": {
+      "editor.tabSize": 2
+   },
+   "java.configuration.updateBuildConfiguration": "interactive"
 }
