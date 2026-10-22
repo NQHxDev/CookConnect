@@ -17,6 +17,9 @@ dependencies:
   http: ^1.2.0
   http_parser: ^4.0.2
   flutter_secure_storage: ^9.2.2
+  image_picker: ^1.2.3
+  shared_widgets:
+    path: ../../packages/shared_widgets
 
 dev_dependencies:
   flutter_test:

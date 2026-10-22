@@ -1,4 +1,4 @@
-/// Configuration class for CookConnect Seller API endpoints and environment settings.
+/// Configuration class for CookConnect Supplier API endpoints and environment settings.
 ///
 /// Base URL defaults to http://192.168.1.162:8080 and can be configured via
 /// `--dart-define=API_BASE_URL=...` or `--dart-define-from-file=.env`.
@@ -27,38 +27,48 @@ class ApiConfig {
   // Common Endpoints
   static String get healthPath => '/api/$apiVersion/health';
 
-  // Seller Auth Endpoints
-  static String get loginPath => '/api/$apiVersion/seller/auth/login';
-  static String get registerPath => '/api/$apiVersion/seller/auth/register';
-  static String get refreshPath => '/api/$apiVersion/seller/auth/refresh';
-  static String get logoutPath => '/api/$apiVersion/seller/auth/logout';
-  static String get mePath => '/api/$apiVersion/seller/auth/me';
+  // Supplier Admin Auth Endpoints (Phase 1: Account registration)
+  static String get sendOtpPath => '/api/$apiVersion/auth/register/send-otp';
+  static String get verifyOtpPath => '/api/$apiVersion/auth/register/verify-otp';
+  static String get loginPath => '/api/$apiVersion/auth/login';
+  static String get registerSupplierPath => '/api/$apiVersion/auth/register-supplier';
+  static String get registerPath => registerSupplierPath;
+  static String get refreshPath => '/api/$apiVersion/auth/refresh';
+  static String get logoutPath => '/api/$apiVersion/auth/logout';
+  static String get mePath => '/api/$apiVersion/auth/me';
 
-  // Seller Dashboard & Stats
-  static String get dashboardStatsPath => '/api/$apiVersion/seller/dashboard/stats';
+  // Supplier Store Onboarding Endpoints (Phase 2: Store setup & details)
+  static String get suppliersPath => '/api/$apiVersion/suppliers';
+  static String get mySupplierPath => '/api/$apiVersion/suppliers/me';
+  static String get storeProfilePath => mySupplierPath;
+  static String get storeStatusPath => '/api/$apiVersion/suppliers/me/status';
 
-  // Seller Orders
-  static String get ordersPath => '/api/$apiVersion/seller/orders';
-  static String orderDetailPath(String orderId) => '/api/$apiVersion/seller/orders/$orderId';
-  static String orderStatusPath(String orderId) => '/api/$apiVersion/seller/orders/$orderId/status';
+  // Supplier Dashboard & Stats
+  static String get dashboardStatsPath => '/api/$apiVersion/supplier/dashboard/stats';
 
-  // Seller Menu / Products
-  static String get menuItemsPath => '/api/$apiVersion/seller/menu/items';
-  static String menuItemDetailPath(String itemId) => '/api/$apiVersion/seller/menu/items/$itemId';
-  static String get menuCategoriesPath => '/api/$apiVersion/seller/menu/categories';
+  // Supplier Orders
+  static String get ordersPath => '/api/$apiVersion/supplier/orders';
+  static String orderDetailPath(String orderId) => '/api/$apiVersion/supplier/orders/$orderId';
+  static String orderStatusPath(String orderId) => '/api/$apiVersion/supplier/orders/$orderId/status';
 
-  // Seller Store Profile
-  static String get storeProfilePath => '/api/$apiVersion/seller/store';
-  static String get storeStatusPath => '/api/$apiVersion/seller/store/status';
+  // Supplier Menu / Products
+  static String get menuItemsPath => '/api/$apiVersion/commerce/products';
+  static String menuItemDetailPath(String itemId) => '/api/$apiVersion/commerce/products/$itemId';
+  static String get menuCategoriesPath => '/api/$apiVersion/commerce/ingredients/categories';
 
   // Helper getters for full endpoint URLs
   static String get apiBaseUrl => '$baseUrl/api/$apiVersion';
   static String get healthUrl => '$baseUrl$healthPath';
+  static String get sendOtpUrl => '$baseUrl$sendOtpPath';
+  static String get verifyOtpUrl => '$baseUrl$verifyOtpPath';
   static String get loginUrl => '$baseUrl$loginPath';
+  static String get registerSupplierUrl => '$baseUrl$registerSupplierPath';
   static String get registerUrl => '$baseUrl$registerPath';
   static String get refreshUrl => '$baseUrl$refreshPath';
   static String get logoutUrl => '$baseUrl$logoutPath';
   static String get meUrl => '$baseUrl$mePath';
+  static String get suppliersUrl => '$baseUrl$suppliersPath';
+  static String get mySupplierUrl => '$baseUrl$mySupplierPath';
   static String get dashboardStatsUrl => '$baseUrl$dashboardStatsPath';
   static String get ordersUrl => '$baseUrl$ordersPath';
   static String get menuItemsUrl => '$baseUrl$menuItemsPath';

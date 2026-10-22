@@ -1,7 +1,7 @@
 import 'package:cookconnect/core/constants/api_codes/ui_i18n_keys.dart';
 import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'package:cookconnect/features/profile/presentation/pages/other_user_profile_screen.dart';
-import 'package:cookconnect/core/widgets/custom_pull_to_refresh.dart';
+import 'package:shared_widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cookconnect/features/activity/presentation/pages/activity_screen.dart';

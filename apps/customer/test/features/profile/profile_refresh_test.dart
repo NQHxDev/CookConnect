@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cookconnect/core/widgets/custom_pull_to_refresh.dart';
+import 'package:shared_widgets/shared_widgets.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 import 'package:cookconnect/features/profile/presentation/pages/profile_screen.dart';
 

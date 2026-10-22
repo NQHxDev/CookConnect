@@ -19,6 +19,8 @@ class Validators {
     return null;
   }
 
+  static String? validateEmail(String? value) => email(value);
+
   static String? password(String? value) {
     if (value == null || value.isEmpty) {
       return 'Vui lòng nhập mật khẩu';
@@ -28,6 +30,8 @@ class Validators {
     }
     return null;
   }
+
+  static String? validatePassword(String? value) => password(value);
 
   static String? phone(String? value) {
     if (value == null || value.trim().isEmpty) {
@@ -39,4 +43,6 @@ class Validators {
     }
     return null;
   }
+
+  static String? validatePhone(String? value) => phone(value);
 }

@@ -9,9 +9,7 @@ class StoreProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Thông tin cửa hàng'),
-      ),
+      appBar: AppBar(title: const Text('Thông tin cửa hàng')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

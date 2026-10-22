@@ -176,3 +176,46 @@ class CustomSliverRefreshControl extends StatelessWidget {
     );
   }
 }
+
+/// A convenient CustomScrollView wrapper that integrates [CustomSliverRefreshControl]
+/// and bouncy physics.
+class CustomPullToRefresh extends StatelessWidget {
+  final Future<void> Function()? onRefresh;
+  final List<Widget> slivers;
+  final Color? primaryColor;
+  final ScrollController? controller;
+  final ScrollPhysics? physics;
+  final Key? scrollKey;
+  final Clip clipBehavior;
+
+  const CustomPullToRefresh({
+    super.key,
+    required this.onRefresh,
+    required this.slivers,
+    this.primaryColor,
+    this.controller,
+    this.physics,
+    this.scrollKey,
+    this.clipBehavior = Clip.hardEdge,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      key: scrollKey,
+      controller: controller,
+      clipBehavior: clipBehavior,
+      physics: physics ??
+          const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+      slivers: [
+        CustomSliverRefreshControl(
+          onRefresh: onRefresh,
+          primaryColor: primaryColor,
+        ),
+        ...slivers,
+      ],
+    );
+  }
+}
