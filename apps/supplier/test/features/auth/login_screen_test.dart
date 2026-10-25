@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cook_connect_seller/core/storage/token_storage_service.dart';
+import 'package:cook_connect_seller/core/utils/validators.dart';
 import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
 import 'package:cook_connect_seller/features/auth/presentation/pages/auth_gate.dart';
 import 'package:cook_connect_seller/features/auth/presentation/pages/welcome_auth_screen.dart';
@@ -152,23 +153,25 @@ void main() {
 
     expect(find.byType(SellerRegisterContactScreen), findsOneWidget);
     expect(find.text('Đăng ký gian hàng'), findsOneWidget);
-    expect(find.text('Bước 1/3: Thông tin liên hệ'), findsOneWidget);
+    // Step indicator is removed
+    expect(find.text('Bước 1/3: Thông tin liên hệ'), findsNothing);
     expect(find.text('Mở gian hàng CookConnect'), findsOneWidget);
 
-    // Enter email
+    // Enter email with plus addressing (e.g. quan.viet+dev@cookconnect.app)
     final emailField = find.widgetWithText(TextFormField, '');
-    await tester.enterText(emailField, 'quan.viet@cookconnect.app');
+    await tester.enterText(emailField, 'quan.viet+dev@cookconnect.app');
     await tester.pumpAndSettle();
 
-    // Tap "Tiếp tục & Nhận mã OTP"
-    await tester.tap(find.text('Tiếp tục & Nhận mã OTP'));
+    // Tap "Tiếp tục" (renamed from "Tiếp tục & Nhận mã OTP")
+    expect(find.text('Tiếp tục'), findsOneWidget);
+    await tester.tap(find.text('Tiếp tục'));
     await tester.pumpAndSettle();
 
     // ================= STEP 2: OTP SCREEN =================
     expect(find.byType(SellerRegisterOtpScreen), findsOneWidget);
     expect(find.text('Xác thực OTP'), findsOneWidget);
-    expect(find.text('Bước 2/3: Xác thực mã OTP'), findsOneWidget);
-    expect(find.text('quan.viet@cookconnect.app'), findsOneWidget);
+    expect(find.text('Bước 2/3: Xác thực mã OTP'), findsNothing);
+    expect(find.text('quan.viet+dev@cookconnect.app'), findsOneWidget);
     expect(find.text('Nhập mã xác nhận 6 số'), findsOneWidget);
 
     // Enter 6-digit OTP
@@ -183,7 +186,7 @@ void main() {
     // ================= STEP 3: PASSWORD SCREEN =================
     expect(find.byType(SellerRegisterPasswordScreen), findsOneWidget);
     expect(find.text('Tạo mật khẩu'), findsOneWidget);
-    expect(find.text('Bước 3/3: Tạo mật khẩu bảo vệ'), findsOneWidget);
+    expect(find.text('Bước 3/3: Tạo mật khẩu bảo vệ'), findsNothing);
     expect(find.text('Thiết lập mật khẩu đăng nhập'), findsOneWidget);
 
     // Enter Password and Confirm Password
@@ -202,21 +205,55 @@ void main() {
     expect(find.text('Thiết lập gian hàng'), findsOneWidget);
 
     // Fill store info
-    final storeFields = find.byType(TextFormField);
-    // 0: Store Name
-    await tester.enterText(storeFields.at(0), 'Quán Cơm Quê Việt');
-    // 1: Owner Name
-    await tester.enterText(storeFields.at(1), 'Nguyễn Văn Nam');
-    // 2: Phone Number
-    await tester.enterText(storeFields.at(2), '0912345678');
-    // 3: Address
-    await tester.enterText(storeFields.at(3), '78 Lê Lợi, Phường Bến Nghé, Quận 1, TP. HCM');
-    // 4: Description
-    await tester.enterText(storeFields.at(4), 'Đậm đà hương vị quê hương ba miền');
+    await tester.enterText(
+      find.descendant(
+        of: find.widgetWithText(TextFormField, 'Tên gian hàng / Nhà cung cấp *'),
+        matching: find.byType(TextField),
+      ),
+      'Quán Cơm Quê Việt',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.widgetWithText(TextFormField, 'Họ và tên người đại diện *'),
+        matching: find.byType(TextField),
+      ),
+      'Nguyễn Văn Nam',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.widgetWithText(TextFormField, 'Số điện thoại liên hệ *'),
+        matching: find.byType(TextField),
+      ),
+      '0912345678',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.widgetWithText(TextFormField, 'Địa chỉ kho hàng / Trụ sở *'),
+        matching: find.byType(TextField),
+      ),
+      '78 Lê Lợi, Phường Bến Nghé, Quận 1, TP. HCM',
+    );
     await tester.pumpAndSettle();
 
-    // Tap "Hoàn tất & Mở gian hàng"
-    await tester.tap(find.text('Hoàn tất & Mở gian hàng'));
+    // Select City via Bottom Sheet
+    final cityField = find.byKey(const Key('city_picker_field'));
+    await tester.ensureVisible(cityField);
+    await tester.tap(cityField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('city_item_0')));
+    await tester.pumpAndSettle();
+
+    // Select Category via Bottom Sheet
+    final categoryField = find.byKey(const Key('category_picker_field'));
+    await tester.ensureVisible(categoryField);
+    await tester.tap(categoryField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('category_item_0')));
+    await tester.pumpAndSettle();
+
+    // Tap Confirm ("Xác nhận") in header
+    final confirmButton = find.byKey(const Key('store_setup_confirm_button'));
+    await tester.tap(confirmButton);
     await tester.pumpAndSettle();
 
     // Successfully opened store, now in MainNavigationScreen!
@@ -225,5 +262,48 @@ void main() {
     expect(authService.currentUser?.storeName, equals('Quán Cơm Quê Việt'));
     expect(authService.currentUser?.fullName, equals('Nguyễn Văn Nam'));
     expect(authService.currentUser?.phone, equals('0912345678'));
+  });
+
+  testWidgets('SellerRegisterContactScreen phone tab shows disabled continue button and feature in development',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SellerRegisterContactScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // No step indicator displayed
+    expect(find.text('Bước 1/3: Thông tin liên hệ'), findsNothing);
+
+    // Email tab continue button is "Tiếp tục"
+    expect(find.text('Tiếp tục'), findsOneWidget);
+
+    // Switch to "Số điện thoại" tab
+    await tester.tap(find.text('Số điện thoại'));
+    await tester.pumpAndSettle();
+
+    // Verify info banner displays feature in development
+    expect(find.text('Tính năng đang phát triển'), findsWidgets);
+    expect(
+      find.text('Đăng ký bằng số điện thoại hiện đang được hoàn thiện. Quý đối tác vui lòng chuyển sang đăng ký bằng Email để tiếp tục.'),
+      findsOneWidget,
+    );
+
+    // Verify the redundant switch button was removed
+    expect(find.text('Chuyển sang đăng ký qua Email (Khuyên dùng)'), findsNothing);
+
+    // Verify button is inactive (disabled: onPressed == null)
+    final continueButton = tester.widget<ElevatedButton>(find.byType(ElevatedButton).first);
+    expect(continueButton.onPressed, isNull);
+  });
+
+  test('Validators.email accepts plus-addressing (e.g. anhjkr+1@gmail.com)', () {
+    expect(Validators.email('anhjkr@gmail.com'), isNull);
+    expect(Validators.email('anhjkr+1@gmail.com'), isNull);
+    expect(Validators.email('anhjkr+dev@cookconnect.vn'), isNull);
+    expect(Validators.email('invalid-email'), equals('Email không hợp lệ'));
+    expect(Validators.email(''), equals('Vui lòng nhập email'));
+    expect(Validators.email(null), equals('Vui lòng nhập email'));
   });
 }

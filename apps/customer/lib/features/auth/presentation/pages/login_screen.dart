@@ -1065,7 +1065,7 @@ class _LoginScreenState extends State<LoginScreen>
                 return 'Vui lòng nhập email';
               }
               if (_isSignUp) {
-                final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                final emailRegex = RegExp(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$');
                 if (!emailRegex.hasMatch(val.trim())) {
                   return 'Định dạng email không hợp lệ';
                 }

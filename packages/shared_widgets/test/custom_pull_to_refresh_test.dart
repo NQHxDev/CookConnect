@@ -67,7 +67,7 @@ void main() {
         ),
       );
 
-      expect(find.byType(CustomSliverRefreshControl), findsOneWidget);
+      expect(find.byType(CustomSliverRefreshControl, skipOffstage: false), findsOneWidget);
       expect(find.text('Test Item'), findsOneWidget);
       expect(refreshed, isFalse);
     });

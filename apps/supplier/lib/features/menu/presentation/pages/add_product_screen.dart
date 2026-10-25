@@ -1,11 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:cook_connect_seller/core/theme/app_colors.dart';
 import '../../data/models/seller_product_item.dart';
 import '../../data/models/product_category_type.dart';
+import '../widgets/product_images_uploader.dart';
 
 class _SkuFormData {
   final String id;
@@ -68,7 +67,6 @@ class AddProductScreen extends StatefulWidget {
 
 class _AddProductScreenState extends State<AddProductScreen> {
   final _formKey = GlobalKey<FormState>();
-  final ImagePicker _picker = ImagePicker();
 
   late final TextEditingController _nameController;
   late final TextEditingController _skuController;
@@ -76,7 +74,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   late final TextEditingController _originalPriceController;
   late final TextEditingController _stockController;
 
-  late String _selectedFoodCategory;
+  String? _selectedFoodCategory;
+  String? _categoryError;
   late List<String> _images;
 
   // SKU Variants state
@@ -89,7 +88,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   late final String _initialPrice;
   late final String _initialOriginalPrice;
   late final String _initialStock;
-  late final String _initialFoodCategory;
+  late final String? _initialFoodCategory;
   late final List<String> _initialImages;
   late final bool _initialHasMultipleSkus;
   late final List<ProductSkuItem> _initialSkusSnapshot;
@@ -120,7 +119,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _initialPrice = p != null ? p.price.round().toString() : '';
     _initialOriginalPrice = p?.originalPrice != null ? p!.originalPrice!.round().toString() : '';
     _initialStock = p != null ? p.stock.toString() : '10';
-    _initialFoodCategory = p?.foodCategory ?? 'Thịt bò';
+    _initialFoodCategory = p?.foodCategory;
     _initialImages = List.from(p?.images ?? (p?.imageUrl != null ? [p!.imageUrl!] : const []));
     _initialHasMultipleSkus = p?.hasMultipleSkus ?? false;
     _initialSkusSnapshot = List.from(p?.skus ?? const []);
@@ -131,9 +130,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _originalPriceController = TextEditingController(text: _initialOriginalPrice);
     _stockController = TextEditingController(text: _initialStock);
 
-    _selectedFoodCategory = _foodCategories.contains(_initialFoodCategory)
-        ? _initialFoodCategory
-        : _foodCategories.first;
+    if (_initialFoodCategory != null && _foodCategories.contains(_initialFoodCategory)) {
+      _selectedFoodCategory = _initialFoodCategory;
+    } else {
+      _selectedFoodCategory = null;
+    }
     _images = List.from(_initialImages);
     _hasMultipleSkus = _initialHasMultipleSkus;
 
@@ -433,7 +434,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       imageUrl: _images.isNotEmpty ? _images.first : null,
       images: _images,
       categoryType: ProductCategoryType.draft,
-      foodCategory: _selectedFoodCategory,
+      foodCategory: _selectedFoodCategory ?? 'Chưa phân loại',
       isAvailable: false,
       updatedAt: DateTime.now(),
       skus: skus,
@@ -444,98 +445,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
 
     Navigator.of(context).pop(draftProduct);
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-    try {
-      if (source == ImageSource.camera) {
-        final XFile? photo = await _picker.pickImage(
-          source: ImageSource.camera,
-          imageQuality: 85,
-        );
-        if (photo != null) {
-          setState(() {
-            _images.add(photo.path);
-          });
-        }
-      } else {
-        final List<XFile> picked = await _picker.pickMultiImage(
-          imageQuality: 85,
-        );
-        if (picked.isNotEmpty) {
-          setState(() {
-            _images.addAll(picked.map((e) => e.path));
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Không thể chọn ảnh: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
-  void _showImagePickerSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const Text(
-                'Thêm ảnh thực phẩm',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: AppColors.primaryLight,
-                  child: Icon(Iconsax.camera, color: AppColors.primary),
-                ),
-                title: const Text('Chụp ảnh từ máy ảnh', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Chụp trực tiếp hình ảnh thực phẩm thực tế'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: AppColors.primaryLight,
-                  child: Icon(Iconsax.gallery, color: AppColors.primary),
-                ),
-                title: const Text('Chọn ảnh từ thư viện', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Có thể chọn nhiều ảnh cùng lúc'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   void _showCategoryBottomSheet() {
@@ -608,6 +517,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     onTap: () {
                       setState(() {
                         _selectedFoodCategory = cat;
+                        _categoryError = null;
                       });
                       Navigator.of(ctx).pop();
                     },
@@ -621,7 +531,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
-  IconData _getFoodCategoryIcon(String cat) {
+  IconData _getFoodCategoryIcon(String? cat) {
+    if (cat == null) {
+      return Iconsax.category_2;
+    }
     final lower = cat.toLowerCase();
     if (lower.contains('bò') || lower.contains('heo') || lower.contains('cừu') || lower.contains('gia cầm')) {
       return Iconsax.reserve;
@@ -694,6 +607,20 @@ class _AddProductScreenState extends State<AddProductScreen> {
       return;
     }
 
+    if (_selectedFoodCategory == null || _selectedFoodCategory!.trim().isEmpty) {
+      setState(() {
+        _categoryError = 'Vui lòng chọn danh mục thực phẩm';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn danh mục thực phẩm cho sản phẩm'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     if (_images.length < 5) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -717,7 +644,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       if (_skuItems.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Vui lòng thêm ít nhất một phân loại SKU'),
+            content: Text('Vui lòng thêm ít nhất một phân loại'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -784,7 +711,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       imageUrl: _images.first,
       images: _images,
       categoryType: ProductCategoryType.underReview,
-      foodCategory: _selectedFoodCategory,
+      foodCategory: _selectedFoodCategory!,
       isAvailable: false,
       updatedAt: DateTime.now(),
       skus: skus,
@@ -814,25 +741,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
     });
   }
 
-  Widget _buildImageThumb(String path) {
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      return Image.network(
-        path,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => const Center(
-          child: Icon(Iconsax.image, color: AppColors.textHint, size: 24),
-        ),
-      );
-    }
-    return Image.file(
-      File(path),
-      fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => const Center(
-        child: Icon(Iconsax.image, color: AppColors.textHint, size: 24),
-      ),
-    );
-  }
-
   String _formatPrice(double amount) {
     final int val = amount.round();
     final str = val.toString();
@@ -850,8 +758,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasEnoughImages = _images.length >= 5;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -908,151 +814,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
               // 1. Real Images Picker Section (Tối thiểu 5 ảnh thật)
-              _buildSectionCard(
-                title: 'Hình ảnh sản phẩm *',
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: hasEnoughImages
-                        ? AppColors.success.withValues(alpha: 0.12)
-                        : AppColors.error.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '${_images.length}/5 ảnh tối thiểu',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: hasEnoughImages ? AppColors.success : AppColors.error,
-                    ),
-                  ),
-                ),
-                subtitle: hasEnoughImages
-                    ? 'Đã đủ số lượng ảnh tối thiểu. Ảnh đầu tiên sẽ làm ảnh bìa.'
-                    : 'Yêu cầu tải lên tối thiểu 5 ảnh thật từ máy ảnh hoặc thư viện ảnh thiết bị.',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        // Uploaded Images
-                        ..._images.asMap().entries.map((entry) {
-                          final idx = entry.key;
-                          final imgPath = entry.value;
-                          final isCover = idx == 0;
-                          return Stack(
-                            children: [
-                              Container(
-                                width: 84,
-                                height: 84,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: isCover ? AppColors.primary : Colors.grey.shade300,
-                                    width: isCover ? 2 : 1,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: _buildImageThumb(imgPath),
-                                ),
-                              ),
-                              // Cover Badge
-                              if (isCover)
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 2),
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.primary,
-                                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
-                                    ),
-                                    child: const Text(
-                                      'Ảnh bìa',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ),
-                              // Delete Button
-                              Positioned(
-                                top: 4,
-                                right: 4,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _images.removeAt(idx);
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(3),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.65),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.close, color: Colors.white, size: 12),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                        // Add Button
-                        InkWell(
-                          onTap: _showImagePickerSheet,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: 84,
-                            height: 84,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: hasEnoughImages ? Colors.grey.shade300 : AppColors.error,
-                                width: 1,
-                                style: BorderStyle.solid,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Iconsax.camera,
-                                  size: 26,
-                                  color: hasEnoughImages ? AppColors.textSecondary : AppColors.error,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '+ Thêm ảnh',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: hasEnoughImages ? AppColors.textSecondary : AppColors.error,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (!hasEnoughImages) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Cần tải lên thêm ít nhất ${5 - _images.length} ảnh nữa để đủ điều kiện xét duyệt',
-                        style: const TextStyle(fontSize: 12, color: AppColors.error),
-                      ),
-                    ],
-                  ],
-                ),
+              ProductImagesUploader(
+                images: _images,
+                onImagesChanged: (updated) {
+                  setState(() {
+                    _images = updated;
+                  });
+                },
+                minImages: 5,
+                maxImages: 10,
               ),
               const SizedBox(height: 16),
 
@@ -1091,6 +861,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                     const SizedBox(height: 6),
                     InkWell(
+                      key: const Key('category_picker_field'),
                       onTap: _showCategoryBottomSheet,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
@@ -1098,23 +869,31 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(
+                            color: _categoryError != null ? AppColors.error : AppColors.border,
+                          ),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               _getFoodCategoryIcon(_selectedFoodCategory),
                               size: 18,
-                              color: AppColors.primary,
+                              color: _selectedFoodCategory != null
+                                  ? AppColors.primary
+                                  : AppColors.textHint,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                _selectedFoodCategory,
-                                style: const TextStyle(
+                                _selectedFoodCategory ?? 'Chọn danh mục thực phẩm',
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w500,
+                                  color: _selectedFoodCategory != null
+                                      ? AppColors.textPrimary
+                                      : AppColors.textHint,
+                                  fontWeight: _selectedFoodCategory != null
+                                      ? FontWeight.w500
+                                      : FontWeight.normal,
                                 ),
                               ),
                             ),
@@ -1127,6 +906,16 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         ),
                       ),
                     ),
+                    if (_categoryError != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        _categoryError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1134,7 +923,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
               // 3. Price, Stock & Multiple SKUs Section
               _buildSectionCard(
-                title: 'Phân loại & Giá bán (SKU)',
+                title: 'Phân loại & Giá bán',
                 subtitle: 'Chọn hình thức quy cách phù hợp cho thực phẩm của bạn',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1218,7 +1007,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'Nhiều phân loại (SKU)',
+                                      'Nhiều phân loại',
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: _hasMultipleSkus ? FontWeight.bold : FontWeight.w500,
@@ -1238,7 +1027,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     // CASE A: Single SKU mode
                     if (!_hasMultipleSkus) ...[
                       const Text(
-                        'Mã SKU (Tùy chọn)',
+                        'Mã sản phẩm (Tùy chọn)',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 6),
@@ -1439,7 +1228,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               ),
                               const SizedBox(height: 10),
                               const Text(
-                                'Mã SKU phân loại (Tùy chọn)',
+                                'Mã sản phẩm phân loại (Tùy chọn)',
                                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 4),
@@ -1547,7 +1336,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       OutlinedButton.icon(
                         onPressed: _addSkuItem,
                         icon: const Icon(Iconsax.add_circle, size: 18),
-                        label: const Text('+ Thêm phân loại SKU mới'),
+                        label: const Text('+ Thêm phân loại mới'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: const BorderSide(color: AppColors.primary, width: 1.2),
@@ -1594,7 +1383,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                   const Text('Số phân loại', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${_skuItems.length} SKU',
+                                    '${_skuItems.length} loại',
                                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                   ),
                                 ],

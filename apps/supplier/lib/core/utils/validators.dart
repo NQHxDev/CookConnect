@@ -12,7 +12,8 @@ class Validators {
     if (value == null || value.trim().isEmpty) {
       return 'Vui lòng nhập email';
     }
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    // Hỗ trợ cả định dạng plus-addressing (ví dụ: email+1@gmail.com, name+dev@domain.vn)
+    final emailRegex = RegExp(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$');
     if (!emailRegex.hasMatch(value.trim())) {
       return 'Email không hợp lệ';
     }
@@ -45,4 +46,23 @@ class Validators {
   }
 
   static String? validatePhone(String? value) => phone(value);
+
+  /// Kiểm tra định dạng verificationToken từ verify-otp:
+  /// Bắt buộc bắt đầu bằng 'vtok_' và có độ dài 37 (compact UUIDv7) hoặc 41 (hyphenated UUIDv7).
+  static bool isValidVerificationToken(String? value) {
+    if (value == null) return false;
+    final clean = value.trim();
+    if (!clean.startsWith('vtok_')) return false;
+    return clean.length == 37 || clean.length == 41;
+  }
+
+  static String? verificationToken(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Vui lòng cung cấp mã xác thực OTP';
+    }
+    if (!isValidVerificationToken(value)) {
+      return 'Mã xác thực không hợp lệ (yêu cầu định dạng vtok_...)';
+    }
+    return null;
+  }
 }

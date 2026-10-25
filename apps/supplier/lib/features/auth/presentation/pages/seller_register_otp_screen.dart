@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cook_connect_seller/core/theme/app_colors.dart';
+import 'package:cook_connect_seller/core/utils/validators.dart';
 import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
 import 'package:cook_connect_seller/features/auth/presentation/pages/seller_register_password_screen.dart';
 
@@ -99,57 +100,6 @@ class _SellerRegisterOtpScreenState extends State<SellerRegisterOtpScreen> {
     }
   }
 
-  Future<void> _pasteFromClipboard() async {
-    try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      final rawText = data?.text ?? '';
-      final match = RegExp(r'\b\d{6}\b').firstMatch(rawText) ?? RegExp(r'\d{6}').firstMatch(rawText);
-
-      if (match != null) {
-        final code = match.group(0)!;
-        _otpController.text = code;
-        _otpController.selection = TextSelection.collapsed(offset: code.length);
-        _onOtpChanged(code);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Iconsax.tick_circle, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
-                  Text('Đã dán mã OTP: $code'),
-                ],
-              ),
-              backgroundColor: Colors.green[700],
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Iconsax.info_circle, color: Colors.white, size: 18),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Không tìm thấy mã OTP 6 số trong bộ nhớ tạm'),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.grey[800],
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
-    } catch (_) {}
-  }
-
   Future<void> _resendOtp() async {
     if (_countdown > 0 || _isResending) return;
 
@@ -169,24 +119,6 @@ class _SellerRegisterOtpScreenState extends State<SellerRegisterOtpScreen> {
 
       if (result.isSuccess) {
         _startCountdownTimer(result.cooldownSeconds ?? 60);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Iconsax.tick_circle, color: Colors.white, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    result.message ?? 'Đã gửi lại mã OTP thành công!',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green[700],
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
       } else {
         setState(() {
           _errorMessage = result.error ?? 'Không thể gửi lại mã OTP. Vui lòng thử lại.';
@@ -226,15 +158,23 @@ class _SellerRegisterOtpScreenState extends State<SellerRegisterOtpScreen> {
       setState(() => _isLoading = false);
 
       if (result.isSuccess) {
+        final token = result.verificationToken ?? widget.verificationToken;
+        if (!Validators.isValidVerificationToken(token)) {
+          setState(() {
+            _errorMessage = 'Không nhận được mã xác thực hợp lệ từ hệ thống (yêu cầu định dạng vtok_...). Vui lòng thử lại.';
+          });
+          return;
+        }
+
         TextInput.finishAutofillContext();
 
-        // Navigate to Step 3: Password creation screen
+        // Navigate to Password creation screen
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => SellerRegisterPasswordScreen(
               contact: widget.contact,
               isPhone: widget.isPhone,
-              verificationToken: result.verificationToken ?? widget.verificationToken,
+              verificationToken: token,
               onLoginSuccess: widget.onLoginSuccess,
             ),
           ),
@@ -277,293 +217,210 @@ class _SellerRegisterOtpScreenState extends State<SellerRegisterOtpScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Step Progress Indicator
-            _buildStepIndicator(step: 2, title: 'Bước 2/3: Xác thực mã OTP'),
-
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Sent to banner
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Sent to banner
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  widget.isPhone ? Iconsax.call : Iconsax.sms_tracking,
-                                  color: primaryColor,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Text(
-                                'Mã OTP đã được gửi đến',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  widget.contact,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              InkWell(
-                                onTap: () => Navigator.pop(context),
-                                borderRadius: BorderRadius.circular(8),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  child: Row(
-                                    children: [
-                                      Icon(Iconsax.edit_2, size: 14, color: primaryColor),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Đổi',
-                                        style: TextStyle(
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: primaryColor,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    const Text(
-                      'Nhập mã xác nhận 6 số',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // 6-digit OTP Box row
-                    _buildOtpInputBoxes(primaryColor),
-
-                    // Paste button
-                    const SizedBox(height: 10),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton.icon(
-                          onPressed: _pasteFromClipboard,
-                          icon: const Icon(Iconsax.clipboard_text, size: 14, color: primaryColor),
-                          label: const Text(
-                            'Dán mã từ clipboard',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: primaryColor,
-                            ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
                           ),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          child: Icon(
+                            widget.isPhone ? Iconsax.call : Iconsax.sms_tracking,
+                            color: primaryColor,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Mã OTP đã được gửi đến',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
                     ),
-
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Iconsax.info_circle, size: 18, color: Colors.red[700]),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _errorMessage!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.red[900],
-                                ),
-                              ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.contact,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
                             ),
-                          ],
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 24),
-
-                    // Countdown / Resend Row
-                    Center(
-                      child: _countdown > 0
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                        InkWell(
+                          onTap: () => Navigator.pop(context),
+                          borderRadius: BorderRadius.circular(8),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Row(
                               children: [
-                                Icon(Iconsax.timer_1, size: 16, color: Colors.grey[600]),
-                                const SizedBox(width: 6),
+                                Icon(Iconsax.edit_2, size: 14, color: primaryColor),
+                                SizedBox(width: 4),
                                 Text(
-                                  'Gửi lại mã sau ${_countdown}s',
+                                  'Đổi',
                                   style: TextStyle(
-                                    fontSize: 13.5,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: primaryColor,
                                   ),
                                 ),
                               ],
-                            )
-                          : TextButton.icon(
-                              onPressed: _isResending ? null : _resendOtp,
-                              icon: _isResending
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: primaryColor,
-                                      ),
-                                    )
-                                  : const Icon(Iconsax.refresh, size: 16, color: primaryColor),
-                              label: const Text(
-                                'Gửi lại mã OTP ngay',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: primaryColor,
-                                ),
-                              ),
                             ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Submit Button
-                    SizedBox(
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: (_isLoading || !_isOtpComplete) ? null : _submitOtp,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: primaryColor.withValues(alpha: 0.4),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Xác nhận & Tiếp tục',
-                                style: TextStyle(
-                                  fontSize: 15.5,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildStepIndicator({required int step, required String title}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(height: 32),
+
+              const Text(
+                'Nhập mã xác nhận 6 số',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const Text(
-                '66%',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+              const SizedBox(height: 14),
+
+              // 6-digit OTP Box row
+              _buildOtpInputBoxes(primaryColor),
+
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Iconsax.info_circle, size: 18, color: Colors.red[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.red[900],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // Countdown / Resend Row
+              Center(
+                child: _countdown > 0
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Iconsax.timer_1, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Gửi lại mã sau ${_countdown}s',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      )
+                    : TextButton.icon(
+                        onPressed: _isResending ? null : _resendOtp,
+                        icon: _isResending
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: primaryColor,
+                                ),
+                              )
+                            : const Icon(Iconsax.refresh, size: 16, color: primaryColor),
+                        label: const Text(
+                          'Gửi lại mã OTP ngay',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
+                          ),
+                        ),
+                      ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // Submit Button
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: (_isLoading || !_isOtpComplete) ? null : _submitOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: primaryColor.withValues(alpha: 0.4),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Xác nhận & Tiếp tục',
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: const LinearProgressIndicator(
-              value: 0.66,
-              backgroundColor: Color(0xFFE0E0E0),
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-              minHeight: 5,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

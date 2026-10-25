@@ -220,7 +220,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Mã SKU (Tùy chọn)',
+                            'Mã sản phẩm (Tùy chọn)',
                             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 6),

@@ -3,6 +3,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:cook_connect_seller/core/theme/app_colors.dart';
 import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
 import 'package:cook_connect_seller/main.dart';
+import 'package:cook_connect_seller/features/auth/presentation/pages/welcome_auth_screen.dart';
 
 class SellerStoreSetupScreen extends StatefulWidget {
   final String? contact;
@@ -53,8 +54,10 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
     'Khác',
   ];
 
-  String _selectedCity = _cities.first;
-  String _selectedCategory = _supplierCategories.first;
+  String? _selectedCity;
+  String? _selectedCategory;
+  String? _cityError;
+  String? _categoryError;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -72,7 +75,9 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
     );
     final userEmail = currentUser?.email;
     _emailController = TextEditingController(
-      text: (userEmail != null && userEmail.contains('@')) ? userEmail : (widget.contact ?? ''),
+      text: (userEmail != null && userEmail.contains('@'))
+          ? userEmail
+          : (widget.contact != null && widget.contact!.contains('@') ? widget.contact! : ''),
     );
     _phoneController = TextEditingController(
       text: currentUser?.phone ?? (widget.isPhone && widget.contact != null ? widget.contact! : ''),
@@ -84,13 +89,66 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
       text: currentUser?.description ?? '',
     );
 
-    if (currentUser?.category != null && _supplierCategories.contains(currentUser!.category)) {
-      _selectedCategory = currentUser.category!;
-    }
+    _storeNameController.addListener(_onFormFieldChanged);
+    _ownerNameController.addListener(_onFormFieldChanged);
+    _emailController.addListener(_onFormFieldChanged);
+    _phoneController.addListener(_onFormFieldChanged);
+    _addressController.addListener(_onFormFieldChanged);
+
+    // Both City and Category start unselected (no default selection) so user chooses explicitly
+    _selectedCity = null;
+    _selectedCategory = null;
+  }
+
+  void _onFormFieldChanged() {
+    setState(() {});
+  }
+
+  bool get _isFormValid {
+    final storeName = _storeNameController.text.trim();
+    final ownerName = _ownerNameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final address = _addressController.text.trim();
+
+    final isStoreNameValid = storeName.length >= 3;
+    final isOwnerNameValid = ownerName.isNotEmpty;
+    final isEmailValid = email.isNotEmpty && email.contains('@');
+    final isPhoneValid = phone.length >= 9;
+    final isCityValid = _selectedCity != null && _selectedCity!.isNotEmpty;
+    final isCategoryValid = _selectedCategory != null && _selectedCategory!.isNotEmpty;
+    final isAddressValid = address.isNotEmpty;
+
+    return isStoreNameValid &&
+        isOwnerNameValid &&
+        isEmailValid &&
+        isPhoneValid &&
+        isCityValid &&
+        isCategoryValid &&
+        isAddressValid;
+  }
+
+  Future<void> _handleBackToWelcome() async {
+    FocusScope.of(context).unfocus();
+    await SellerAuthService.instance.logout(callServer: false);
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => WelcomeAuthScreen(
+          onLoginSuccess: widget.onLoginSuccess,
+        ),
+      ),
+      (route) => false,
+    );
   }
 
   @override
   void dispose() {
+    _storeNameController.removeListener(_onFormFieldChanged);
+    _ownerNameController.removeListener(_onFormFieldChanged);
+    _emailController.removeListener(_onFormFieldChanged);
+    _phoneController.removeListener(_onFormFieldChanged);
+    _addressController.removeListener(_onFormFieldChanged);
     _storeNameController.dispose();
     _storeCodeController.dispose();
     _ownerNameController.dispose();
@@ -101,11 +159,401 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
     super.dispose();
   }
 
+  void _showCityBottomSheet() {
+    FocusScope.of(context).unfocus();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Iconsax.location,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tỉnh / Thành phố hoạt động',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Chọn khu vực gian hàng cung ứng chính',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Iconsax.close_circle, color: AppColors.textHint, size: 22),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    tooltip: 'Đóng',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+
+              // Cities List
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: _cities.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final city = _cities[index];
+                    final isSelected = city == _selectedCity;
+
+                    return InkWell(
+                      key: Key('city_item_$index'),
+                      onTap: () {
+                        setState(() {
+                          _selectedCity = city;
+                          _cityError = null;
+                        });
+                        Navigator.of(ctx).pop();
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary.withValues(alpha: 0.08)
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.primary
+                                : Colors.grey.shade200,
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.primary.withValues(alpha: 0.12)
+                                    : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Iconsax.buildings,
+                                size: 18,
+                                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                city,
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(
+                                Iconsax.tick_circle,
+                                color: AppColors.primary,
+                                size: 20,
+                              )
+                            else
+                              const Icon(
+                                Iconsax.arrow_right_3,
+                                color: AppColors.textHint,
+                                size: 16,
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    if (category.contains('tươi sống') || category.contains('Nông sản')) {
+      return Icons.eco_outlined;
+    }
+    if (category.contains('Thịt') || category.contains('thủy hải sản')) {
+      return Iconsax.reserve;
+    }
+    if (category.contains('Rau') || category.contains('Trái cây')) {
+      return Icons.apple;
+    }
+    if (category.contains('Gia vị') || category.contains('xốt')) {
+      return Iconsax.magic_star;
+    }
+    if (category.contains('đông lạnh') || category.contains('hộp')) {
+      return Icons.ac_unit;
+    }
+    if (category.contains('Cơm') || category.contains('gia đình')) {
+      return Iconsax.shop;
+    }
+    if (category.contains('Trà sữa') || category.contains('Cà phê')) {
+      return Icons.coffee;
+    }
+    return Iconsax.box_1;
+  }
+
+  void _showCategoryBottomSheet() {
+    FocusScope.of(context).unfocus();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Iconsax.category,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Chọn lĩnh vực cung cấp chính',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Chọn ngành hàng thực phẩm / nguyên liệu chủ lực',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Iconsax.close_circle, color: AppColors.textHint, size: 22),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    tooltip: 'Đóng',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+
+              // Categories List
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: _supplierCategories.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final category = _supplierCategories[index];
+                    final isSelected = category == _selectedCategory;
+
+                    return InkWell(
+                      key: Key('category_item_$index'),
+                      onTap: () {
+                        setState(() {
+                          _selectedCategory = category;
+                          _categoryError = null;
+                        });
+                        Navigator.of(ctx).pop();
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary.withValues(alpha: 0.08)
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.primary
+                                : Colors.grey.shade200,
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.primary.withValues(alpha: 0.12)
+                                    : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                _getCategoryIcon(category),
+                                size: 18,
+                                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                category,
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(
+                                Iconsax.tick_circle,
+                                color: AppColors.primary,
+                                size: 20,
+                              )
+                            else
+                              const Icon(
+                                Iconsax.arrow_right_3,
+                                color: AppColors.textHint,
+                                size: 16,
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleSaveStore() async {
     FocusScope.of(context).unfocus();
-    setState(() => _errorMessage = null);
+    setState(() {
+      _errorMessage = null;
+      _cityError = null;
+      _categoryError = null;
+    });
 
-    if (!_formKey.currentState!.validate()) {
+    bool hasError = false;
+    if (_selectedCity == null || _selectedCity!.isEmpty) {
+      _cityError = 'Vui lòng chọn Tỉnh / Thành phố hoạt động';
+      hasError = true;
+    }
+    if (_selectedCategory == null || _selectedCategory!.isEmpty) {
+      _categoryError = 'Vui lòng chọn lĩnh vực cung cấp chính';
+      hasError = true;
+    }
+
+    if (!_formKey.currentState!.validate() || hasError) {
+      setState(() {});
       return;
     }
 
@@ -195,83 +643,67 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
     }
   }
 
-  Future<void> _confirmSignOut() async {
-    final shouldLogout = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Đăng xuất tài khoản?'),
-        content: const Text(
-          'Bạn có chắc chắn muốn đăng xuất? Bạn có thể đăng nhập lại bất kỳ lúc nào để tiếp tục thiết lập gian hàng.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[600],
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Đăng xuất'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldLogout == true) {
-      await SellerAuthService.instance.logout();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          ScaffoldMessenger.of(context).removeCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Iconsax.info_circle, color: Colors.white, size: 18),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Vui lòng hoàn tất thông tin gian hàng trước khi bắt đầu bán hàng.',
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.grey[900],
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackToWelcome();
       },
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
-          automaticallyImplyLeading: false,
+          leading: IconButton(
+            key: const Key('store_setup_back_button'),
+            icon: const Icon(Iconsax.arrow_left, color: AppColors.textPrimary),
+            tooltip: 'Quay lại',
+            onPressed: _isLoading ? null : _handleBackToWelcome,
+          ),
           title: const Text(
             'Thông tin gian hàng',
             style: TextStyle(
               color: AppColors.textPrimary,
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.bold,
             ),
           ),
           centerTitle: true,
           actions: [
-            IconButton(
-              icon: const Icon(Iconsax.logout, color: AppColors.textSecondary),
-              tooltip: 'Đăng xuất',
-              onPressed: _confirmSignOut,
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton(
+                key: const Key('store_setup_confirm_button'),
+                onPressed: (_isFormValid && !_isLoading) ? _handleSaveStore : null,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  disabledForegroundColor: AppColors.textHint.withValues(alpha: 0.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : Text(
+                        'Xác nhận',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: (_isFormValid && !_isLoading)
+                              ? AppColors.primary
+                              : AppColors.textHint.withValues(alpha: 0.5),
+                        ),
+                      ),
+              ),
             ),
           ],
         ),
@@ -436,15 +868,25 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Contact Email (Required)
+                        // Contact Email (Read-only / Not changeable at this step)
                         _buildFieldLabel('Email liên hệ chính thức *'),
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: _emailController,
+                          readOnly: true,
+                          canRequestFocus: false,
+                          enableInteractiveSelection: false,
                           keyboardType: TextInputType.emailAddress,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
                           decoration: _inputDecoration(
                             hint: 'Ví dụ: contact@nhacungcap.vn',
                             icon: Iconsax.sms,
+                          ).copyWith(
+                            fillColor: Colors.grey.shade100,
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
@@ -455,6 +897,14 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
                             }
                             return null;
                           },
+                        ),
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Text(
+                            'Email đăng ký tài khoản được dùng cố định làm email liên hệ chính thức.',
+                            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                          ),
                         ),
 
                         const SizedBox(height: 16),
@@ -482,79 +932,121 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
 
                         const SizedBox(height: 16),
 
-                        // City Dropdown
+                        // City Picker (Bottom Sheet Modal)
                         _buildFieldLabel('Tỉnh / Thành phố hoạt động *'),
                         const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              isExpanded: true,
-                              value: _selectedCity,
-                              icon: const Icon(Iconsax.arrow_down_1, size: 18),
-                              items: _cities.map((city) {
-                                return DropdownMenuItem<String>(
-                                  value: city,
+                        InkWell(
+                          key: const Key('city_picker_field'),
+                          onTap: _showCityBottomSheet,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _cityError != null ? Colors.red.shade400 : Colors.grey.shade300,
+                                width: _cityError != null ? 1.2 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Iconsax.location,
+                                  color: _selectedCity != null ? AppColors.primary : AppColors.textHint,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
                                   child: Text(
-                                    city,
-                                    style: const TextStyle(
+                                    _selectedCity ?? 'Chọn Tỉnh / Thành phố hoạt động',
+                                    style: TextStyle(
                                       fontSize: 14,
-                                      color: AppColors.textPrimary,
+                                      color: _selectedCity != null
+                                          ? AppColors.textPrimary
+                                          : Colors.grey.shade400,
+                                      fontWeight: _selectedCity != null ? FontWeight.w500 : FontWeight.normal,
                                     ),
                                   ),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => _selectedCity = val);
-                                }
-                              },
+                                ),
+                                const Icon(
+                                  Iconsax.arrow_down_1,
+                                  size: 18,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ],
                             ),
                           ),
                         ),
+                        if (_cityError != null) ...[
+                          const SizedBox(height: 4),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Text(
+                              _cityError!,
+                              style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                            ),
+                          ),
+                        ],
 
                         const SizedBox(height: 16),
 
-                        // Category Dropdown
+                        // Category Picker (Bottom Sheet Modal - No Default Selection)
                         _buildFieldLabel('Lĩnh vực cung cấp chính *'),
                         const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              isExpanded: true,
-                              value: _selectedCategory,
-                              icon: const Icon(Iconsax.arrow_down_1, size: 18),
-                              items: _supplierCategories.map((category) {
-                                return DropdownMenuItem<String>(
-                                  value: category,
+                        InkWell(
+                          key: const Key('category_picker_field'),
+                          onTap: _showCategoryBottomSheet,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _categoryError != null ? Colors.red.shade400 : Colors.grey.shade300,
+                                width: _categoryError != null ? 1.2 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Iconsax.category,
+                                  color: _selectedCategory != null ? AppColors.primary : AppColors.textHint,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
                                   child: Text(
-                                    category,
-                                    style: const TextStyle(
+                                    _selectedCategory ?? 'Chọn lĩnh vực cung cấp chính',
+                                    style: TextStyle(
                                       fontSize: 14,
-                                      color: AppColors.textPrimary,
+                                      color: _selectedCategory != null
+                                          ? AppColors.textPrimary
+                                          : Colors.grey.shade400,
+                                      fontWeight: _selectedCategory != null ? FontWeight.w500 : FontWeight.normal,
                                     ),
                                   ),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => _selectedCategory = val);
-                                }
-                              },
+                                ),
+                                const Icon(
+                                  Iconsax.arrow_down_1,
+                                  size: 18,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ],
                             ),
                           ),
                         ),
+                        if (_categoryError != null) ...[
+                          const SizedBox(height: 4),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Text(
+                              _categoryError!,
+                              style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                            ),
+                          ),
+                        ],
 
                         const SizedBox(height: 16),
 
@@ -591,40 +1083,6 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
                         ),
 
                         const SizedBox(height: 32),
-
-                        // Submit Button
-                        SizedBox(
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleSaveStore,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Hoàn tất & Kích hoạt gian hàng',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
                       ],
                     ),
                   ),

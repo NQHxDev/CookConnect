@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cook_connect_seller/core/theme/app_colors.dart';
+import 'package:cook_connect_seller/core/utils/validators.dart';
 import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
 import 'package:cook_connect_seller/features/auth/presentation/pages/seller_store_setup_screen.dart';
 
@@ -55,6 +56,9 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
     super.initState();
     _passwordController.addListener(_onTextChanged);
     _confirmPasswordController.addListener(_onTextChanged);
+    if (!Validators.isValidVerificationToken(widget.verificationToken)) {
+      _errorMessage = 'Mã xác thực không hợp lệ (yêu cầu định dạng vtok_...). Vui lòng quay lại bước xác thực OTP.';
+    }
   }
 
   void _onTextChanged() {
@@ -87,6 +91,13 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
       return;
     }
 
+    if (!Validators.isValidVerificationToken(widget.verificationToken)) {
+      setState(() {
+        _errorMessage = 'Mã xác thực không hợp lệ (yêu cầu định dạng vtok_...). Vui lòng xác thực lại OTP.';
+      });
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final email = widget.isPhone
@@ -107,25 +118,6 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
       setState(() => _isLoading = false);
 
       if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Iconsax.tick_circle, color: Colors.white),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Đăng ký tài khoản thành công! Hãy thiết lập thông tin gian hàng.',
-                    style: TextStyle(fontSize: 13.5),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green[700],
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-
         // Mandatory Next Step: Store setup screen (cannot bypass)
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
@@ -175,13 +167,7 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
         centerTitle: true,
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Step Progress Indicator
-            _buildStepIndicator(step: 3, title: 'Bước 3/3: Tạo mật khẩu bảo vệ'),
-
-            Expanded(
-              child: SingleChildScrollView(
+        child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
                 child: Form(
                   key: _formKey,
@@ -398,7 +384,7 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
                       SizedBox(
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: (_isLoading || !_isFormValid) ? null : _submitRegister,
+                          onPressed: (_isLoading || !_isFormValid || !Validators.isValidVerificationToken(widget.verificationToken)) ? null : _submitRegister,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
@@ -430,58 +416,6 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStepIndicator({required int step, required String title}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const Text(
-                '100%',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: const LinearProgressIndicator(
-              value: 1.0,
-              backgroundColor: Color(0xFFE0E0E0),
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-              minHeight: 5,
-            ),
-          ),
-        ],
       ),
     );
   }

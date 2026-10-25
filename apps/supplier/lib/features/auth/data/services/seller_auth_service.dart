@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cook_connect_seller/core/network/api_client.dart';
+import 'package:cook_connect_seller/core/network/api_exception.dart';
 import 'package:cook_connect_seller/core/storage/token_storage_service.dart';
 import 'package:cook_connect_seller/features/auth/data/models/otp_result.dart';
 import 'package:cook_connect_seller/features/auth/data/models/seller_auth.dart';
@@ -137,6 +138,9 @@ class SellerAuthService extends ChangeNotifier {
       return result;
     } catch (e) {
       debugPrint('checkSupplierStatus failed: $e');
+      if (e is ApiException && (e.statusCode == 401 || e.statusCode == 403)) {
+        await logout(callServer: false, sessionExpired: true);
+      }
       return null;
     }
   }
@@ -473,6 +477,7 @@ class SellerAuthService extends ChangeNotifier {
         return null;
       }
     } catch (_) {
+      logout(callServer: false, sessionExpired: true);
       completer.complete(null);
       return null;
     } finally {

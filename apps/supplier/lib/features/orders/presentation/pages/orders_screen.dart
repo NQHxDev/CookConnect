@@ -6,6 +6,7 @@ import 'package:cook_connect_seller/features/orders/presentation/widgets/order_c
 import 'package:cook_connect_seller/features/orders/presentation/widgets/order_filter_bottom_sheet.dart';
 import 'package:cook_connect_seller/features/orders/presentation/widgets/shipping_status_bottom_sheet.dart';
 import 'package:cook_connect_seller/features/orders/presentation/widgets/needs_action_bottom_sheet.dart';
+import 'package:shared_widgets/shared_widgets.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -408,33 +409,43 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
           // Danh sách đơn hàng
           Expanded(
-            child: RefreshIndicator(
+            child: CustomPullToRefresh(
               onRefresh: () async {
                 await Future.delayed(const Duration(milliseconds: 500));
-                setState(() {});
+                if (mounted) setState(() {});
               },
-              color: AppColors.primary,
-              child: filtered.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.only(top: 8, bottom: 24),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
-                        final order = filtered[index];
-                        return OrderCard(
-                          order: order,
-                          onTap: () => _showOrderDetail(order),
-                          onPrimaryAction: () {
-                            if (_activeMainCategory == 'needs_action' ||
-                                _needsActionStatuses.contains(order.status)) {
-                              _confirmOrder(order);
-                            } else {
-                              _handoverToShipper(order);
-                            }
-                          },
-                        );
-                      },
+              primaryColor: AppColors.primary,
+              slivers: [
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildEmptyState(),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 24),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final order = filtered[index];
+                          return OrderCard(
+                            order: order,
+                            onTap: () => _showOrderDetail(order),
+                            onPrimaryAction: () {
+                              if (_activeMainCategory == 'needs_action' ||
+                                  _needsActionStatuses.contains(order.status)) {
+                                _confirmOrder(order);
+                              } else {
+                                _handoverToShipper(order);
+                              }
+                            },
+                          );
+                        },
+                        childCount: filtered.length,
+                      ),
                     ),
+                  ),
+              ],
             ),
           ),
         ],

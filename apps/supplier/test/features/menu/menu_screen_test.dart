@@ -9,7 +9,7 @@ void main() {
   testWidgets('MenuScreen renders product management page with all 7 category tabs', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+    addTearDown(() { tester.view.resetPhysicalSize(); tester.view.resetDevicePixelRatio(); });
 
     await tester.pumpWidget(
       const MaterialApp(
@@ -58,7 +58,7 @@ void main() {
   testWidgets('MenuScreen allows switching tabs by direct horizontal tab tapping', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+    addTearDown(() { tester.view.resetPhysicalSize(); tester.view.resetDevicePixelRatio(); });
 
     await tester.pumpWidget(
       const MaterialApp(
@@ -79,7 +79,7 @@ void main() {
   testWidgets('MenuScreen search filter works as expected', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+    addTearDown(() { tester.view.resetPhysicalSize(); tester.view.resetDevicePixelRatio(); });
 
     await tester.pumpWidget(
       const MaterialApp(
@@ -104,7 +104,7 @@ void main() {
   testWidgets('MenuScreen quick edit stock and price dialog', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+    addTearDown(() { tester.view.resetPhysicalSize(); tester.view.resetDevicePixelRatio(); });
 
     await tester.pumpWidget(
       const MaterialApp(
@@ -131,7 +131,7 @@ void main() {
   testWidgets('MenuScreen integrates shared CustomSliverRefreshControl and pull-to-refresh triggers smoothly', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+    addTearDown(() { tester.view.resetPhysicalSize(); tester.view.resetDevicePixelRatio(); });
 
     await tester.pumpWidget(
       const MaterialApp(
@@ -141,10 +141,13 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify CustomSliverRefreshControl is embedded in CustomScrollView
-    expect(find.byType(CustomSliverRefreshControl), findsOneWidget);
+    expect(find.byType(CustomSliverRefreshControl, skipOffstage: false), findsOneWidget);
 
     // Find the vertical scrollable (CustomScrollView)
-    final verticalScrollable = find.byType(Scrollable).at(1);
+    final verticalScrollable = find.descendant(
+      of: find.byType(CustomScrollView),
+      matching: find.byType(Scrollable),
+    );
 
     // Pull down to trigger refresh
     await tester.drag(verticalScrollable, const Offset(0, 150));
@@ -167,7 +170,7 @@ void main() {
   testWidgets('Tapping add button navigates to AddProductScreen with food categories, multiple SKUs and real image requirements', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+    addTearDown(() { tester.view.resetPhysicalSize(); tester.view.resetDevicePixelRatio(); });
 
     await tester.pumpWidget(
       const MaterialApp(
@@ -195,18 +198,19 @@ void main() {
     expect(find.text('Danh mục thực phẩm *'), findsOneWidget);
 
     // SKU & Pricing Section
-    expect(find.text('Phân loại & Giá bán (SKU)'), findsOneWidget);
+    expect(find.text('Phân loại & Giá bán'), findsOneWidget);
     expect(find.text('Duy nhất 1 loại'), findsOneWidget);
-    expect(find.text('Nhiều phân loại (SKU)'), findsOneWidget);
+    expect(find.text('Nhiều phân loại'), findsOneWidget);
 
     // Tap Food Category to verify modal bottom sheet opens with food ingredient categories
-    final categoryField = find.text('Thịt bò');
+    final categoryField = find.byKey(const Key('category_picker_field'));
     expect(categoryField, findsOneWidget);
+    expect(find.text('Chọn danh mục thực phẩm'), findsOneWidget);
     await tester.tap(categoryField);
     await tester.pumpAndSettle();
 
     // Verify category modal bottom sheet has food categories
-    expect(find.text('Chọn danh mục thực phẩm'), findsOneWidget);
+    expect(find.text('Chọn danh mục thực phẩm'), findsNWidgets(2));
     expect(find.text('Thịt cừu & dê'), findsOneWidget);
     expect(find.text('Trứng các loại'), findsOneWidget);
     expect(find.text('Rau củ tươi'), findsOneWidget);
@@ -221,13 +225,13 @@ void main() {
     expect(find.text('Trứng các loại'), findsOneWidget);
 
     // Switch to 'Nhiều phân loại (SKU)'
-    await tester.tap(find.text('Nhiều phân loại (SKU)'));
+    await tester.tap(find.text('Nhiều phân loại'));
     await tester.pumpAndSettle();
 
     // Verify Multiple SKUs UI elements are displayed
     expect(find.text('Phân loại #1'), findsOneWidget);
     expect(find.text('Phân loại #2'), findsOneWidget);
-    expect(find.text('+ Thêm phân loại SKU mới'), findsOneWidget);
+    expect(find.text('+ Thêm phân loại mới'), findsOneWidget);
 
     // Verify dirty check when navigating back with edits
     final backBtn = find.byIcon(Icons.arrow_back_ios_new_rounded);
@@ -243,5 +247,48 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Quản lý sản phẩm'), findsOneWidget);
+  });
+
+  testWidgets('AddProductScreen requires selecting a category before submission', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AddProductScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify initial state has no category selected
+    expect(find.text('Chọn danh mục thực phẩm'), findsOneWidget);
+
+    // Fill valid name and price
+    await tester.enterText(find.byType(TextFormField).first, 'Thịt thăn bò Úc nhập khẩu');
+    await tester.enterText(find.byType(TextFormField).at(2), '250000');
+    await tester.pumpAndSettle();
+
+    // Tap 'Xét duyệt' to submit without category
+    await tester.tap(find.text('Xét duyệt'));
+    await tester.pumpAndSettle();
+
+    // Error message is displayed
+    expect(find.text('Vui lòng chọn danh mục thực phẩm'), findsOneWidget);
+
+    // Tap category picker and choose 'Thịt bò'
+    final picker = find.byKey(const Key('category_picker_field'));
+    await tester.tap(picker);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Thịt bò'));
+    await tester.pumpAndSettle();
+
+    // Verify error is cleared and category is selected
+    expect(find.text('Vui lòng chọn danh mục thực phẩm'), findsNothing);
+    expect(find.text('Thịt bò'), findsOneWidget);
   });
 }

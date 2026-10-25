@@ -28,18 +28,23 @@ help:
 	@echo "  make supplier [device]          - Run supplier app (e.g. make supplier iPhonee)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make customer [device] - Run customer app (debug mode)"
-	@echo "  make supplier [device] - Run supplier app (debug mode)"
-	@echo "  make install           - Build & Install release APK for both apps"
-	@echo "  make install-debug     - Build & Install debug APK for both apps"
-	@echo "  make devices           - List connected devices"
-	@echo "  make doctor            - Run flutter doctor"
-	@echo "  make clean             - Clean build artifacts"
-	@echo "  make deps              - Get dependencies"
-	@echo "  make format            - Format code"
-	@echo "  make lint              - Run linter"
-	@echo "  make test              - Run tests"
-	@echo "  make check             - Run format, lint, and test"
+	@echo "  make customer [device]          - Run customer app (debug mode)"
+	@echo "  make supplier [device]          - Run supplier app (debug mode)"
+	@echo "  make install                    - Build & Install release APK for both apps"
+	@echo "  make install-debug              - Build & Install debug APK for both apps"
+	@echo "  make devices                    - List connected devices"
+	@echo "  make doctor                     - Run flutter doctor"
+	@echo "  make clean [APP=supplier]       - Clean build artifacts"
+	@echo "  make clean-all [APP=supplier]   - Deep clean Flutter packages"
+	@echo "  make reset-ios [APP=supplier]   - Full clean iOS cache, DerivedData & re-pod"
+	@echo "  make reset-supplier-ios         - Fast reset & re-install Pods for Supplier iOS"
+	@echo "  make reset-customer-ios         - Fast reset & re-install Pods for Customer iOS"
+	@echo "  make reset-all-ios              - Reset both Supplier and Customer iOS"
+	@echo "  make deps [APP=supplier]        - Get dependencies"
+	@echo "  make format                     - Format code"
+	@echo "  make lint                       - Run linter"
+	@echo "  make test                       - Run tests"
+	@echo "  make check                      - Run format, lint, and test"
 
 # Run app directly for customer
 .PHONY: customer
@@ -138,6 +143,39 @@ clean-all: clean
 	rm -rf $(APP_DIR)/.dart_tool/
 	rm -rf $(APP_DIR)/.packages
 	cd $(APP_DIR) && flutter pub get
+
+# iOS Reset & Fix Stale Cache
+.PHONY: reset-ios
+reset-ios:
+	@echo "=========================================="
+	@echo "🚀 Resetting iOS build environment for: $(APP)"
+	@echo "=========================================="
+	@echo "🧹 [1/5] Removing Xcode DerivedData..."
+	rm -rf ~/Library/Developer/Xcode/DerivedData
+	@echo "🧹 [2/5] Removing Flutter build & .dart_tool..."
+	rm -rf $(APP_DIR)/build $(APP_DIR)/.dart_tool $(APP_DIR)/.flutter-plugins-dependencies
+	@echo "🧹 [3/5] Removing iOS Pods & build artifacts..."
+	rm -rf $(APP_DIR)/ios/Pods $(APP_DIR)/ios/Podfile.lock $(APP_DIR)/ios/.symlinks
+	@echo "📦 [4/5] Running flutter clean & flutter pub get..."
+	cd $(APP_DIR) && flutter clean && flutter pub get
+	@echo "🍎 [5/5] Running pod install..."
+	cd $(APP_DIR)/ios && pod install
+	@echo ""
+	@echo "🎉 Done! Clean and setup completed for $(APP) iOS."
+	@echo "👉 Bạn hãy mở lại Runner.xcworkspace và nhấn Cmd + R để Run!"
+
+.PHONY: reset-supplier-ios
+reset-supplier-ios:
+	@$(MAKE) reset-ios APP=supplier
+
+.PHONY: reset-customer-ios
+reset-customer-ios:
+	@$(MAKE) reset-ios APP=customer
+
+.PHONY: reset-all-ios
+reset-all-ios:
+	@$(MAKE) reset-supplier-ios
+	@$(MAKE) reset-customer-ios
 
 # Hot reload/restart helpers
 .PHONY: hot-reload
