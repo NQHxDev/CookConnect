@@ -5,6 +5,7 @@ import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'package:cookconnect/features/recipe/presentation/pages/home_screen.dart';
 import 'package:cookconnect/features/recipe/presentation/pages/library_screen.dart';
 import 'package:cookconnect/features/recipe/presentation/pages/upload_screen.dart';
+import 'package:cookconnect/features/recipe/presentation/pages/cooking_camera_screen.dart';
 import 'package:cookconnect/features/chat/presentation/pages/chat_screen.dart';
 import 'package:cookconnect/features/profile/presentation/pages/profile_screen.dart';
 
@@ -22,6 +23,15 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _currentIndex = index;
     });
+  }
+
+  void _openCookingCamera() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const CookingCameraScreen(),
+      ),
+    );
   }
 
   @override
@@ -103,25 +113,29 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildAddButton() {
-    final isActive = _currentIndex == 2;
-    final primaryColor = Theme.of(context).colorScheme.primary;
-
     return Expanded(
       child: InkWell(
-        onTap: () => _onTabTapped(2),
+        onTap: _openCookingCamera,
         borderRadius: BorderRadius.circular(10),
         child: Center(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: isActive
-                  ? primaryColor
-                  : primaryColor.withValues(alpha: 0.12),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF5722), Color(0xFFFF2D55)],
+              ),
               borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF2D55).withValues(alpha: 0.35),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Icon(
-              isActive ? Iconsax.add5 : Iconsax.add,
-              color: isActive ? Colors.white : primaryColor,
+            child: const Icon(
+              Iconsax.add,
+              color: Colors.white,
               size: 20,
             ),
           ),

@@ -44,6 +44,7 @@ dependencies:
   video_pool: ^0.6.1
   media_kit: ^1.1.11
   media_kit_video: ^2.0.1
+  camera: ^0.12.1
   flutter_cache_manager: ^3.4.1
   shared_widgets:
     path: ../../packages/shared_widgets

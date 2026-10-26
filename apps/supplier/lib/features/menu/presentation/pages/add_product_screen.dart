@@ -5,6 +5,8 @@ import 'package:cook_connect_seller/core/theme/app_colors.dart';
 import '../../data/models/seller_product_item.dart';
 import '../../data/models/product_category_type.dart';
 import '../widgets/product_images_uploader.dart';
+import '../../data/models/product_category.dart';
+import '../../data/services/product_category_service.dart';
 
 class _SkuFormData {
   final String id;
@@ -21,11 +23,11 @@ class _SkuFormData {
     String price = '',
     String originalPrice = '',
     String stock = '10',
-  })  : nameController = TextEditingController(text: name),
-        skuController = TextEditingController(text: sku),
-        priceController = TextEditingController(text: price),
-        originalPriceController = TextEditingController(text: originalPrice),
-        stockController = TextEditingController(text: stock);
+  }) : nameController = TextEditingController(text: name),
+       skuController = TextEditingController(text: sku),
+       priceController = TextEditingController(text: price),
+       originalPriceController = TextEditingController(text: originalPrice),
+       stockController = TextEditingController(text: stock);
 
   void dispose() {
     nameController.dispose();
@@ -39,23 +41,27 @@ class _SkuFormData {
 class AddProductScreen extends StatefulWidget {
   final SellerProductItem? initialProduct;
   final ValueChanged<SellerProductItem>? onAdd;
+  final ProductCategoryService? categoryService;
 
   const AddProductScreen({
     super.key,
     this.initialProduct,
     this.onAdd,
+    this.categoryService,
   });
 
   static Future<SellerProductItem?> navigate(
     BuildContext context, {
     SellerProductItem? initialProduct,
     ValueChanged<SellerProductItem>? onAdd,
+    ProductCategoryService? categoryService,
   }) {
     return Navigator.of(context).push<SellerProductItem>(
       MaterialPageRoute(
         builder: (context) => AddProductScreen(
           initialProduct: initialProduct,
           onAdd: onAdd,
+          categoryService: categoryService,
         ),
       ),
     );
@@ -81,6 +87,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   // SKU Variants state
   late bool _hasMultipleSkus;
   final List<_SkuFormData> _skuItems = [];
+  late final ProductCategoryService _categoryService;
+  String? _selectedWhoCategoryCode;
 
   // Initial values for dirty check
   late final String _initialName;
@@ -93,47 +101,89 @@ class _AddProductScreenState extends State<AddProductScreen> {
   late final bool _initialHasMultipleSkus;
   late final List<ProductSkuItem> _initialSkusSnapshot;
 
-  final List<String> _foodCategories = const [
-    'Thịt bò',
-    'Thịt heo',
-    'Thịt gia cầm',
-    'Thịt cừu & dê',
-    'Thủy hải sản',
-    'Trứng các loại',
-    'Rau củ tươi',
-    'Nấm & Đậu hũ',
-    'Trái cây tươi',
-    'Thực phẩm chế biến',
-    'Gia vị & Nước sốt',
-    'Đồ khô & Ngũ cốc',
-    'Bơ, Sữa & Phô mai',
-    'Đồ đông lạnh',
-  ];
+  List<ProductCategory> _categories = ProductCategory.defaultCategories;
+
+  Future<void> _loadCategories() async {
+    try {
+      final categories = await _categoryService.getCategories();
+      if (mounted && categories.isNotEmpty) {
+        setState(() {
+          _categories = categories;
+          if (_selectedWhoCategoryCode != null) {
+            final found = _categories
+                .where(
+                  (c) =>
+                      c.code.toUpperCase() ==
+                      _selectedWhoCategoryCode!.toUpperCase(),
+                )
+                .firstOrNull;
+            if (found != null) {
+              _selectedFoodCategory = found.name;
+            }
+          }
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void initState() {
     super.initState();
+    _categoryService = widget.categoryService ?? ProductCategoryService();
+    _loadCategories();
     final p = widget.initialProduct;
     _initialName = p?.name ?? '';
     _initialSku = p?.sku ?? '';
     _initialPrice = p != null ? p.price.round().toString() : '';
-    _initialOriginalPrice = p?.originalPrice != null ? p!.originalPrice!.round().toString() : '';
+    _initialOriginalPrice = p?.originalPrice != null
+        ? p!.originalPrice!.round().toString()
+        : '';
     _initialStock = p != null ? p.stock.toString() : '10';
     _initialFoodCategory = p?.foodCategory;
-    _initialImages = List.from(p?.images ?? (p?.imageUrl != null ? [p!.imageUrl!] : const []));
+    _initialImages = List.from(
+      p?.images ?? (p?.imageUrl != null ? [p!.imageUrl!] : const []),
+    );
     _initialHasMultipleSkus = p?.hasMultipleSkus ?? false;
     _initialSkusSnapshot = List.from(p?.skus ?? const []);
 
     _nameController = TextEditingController(text: _initialName);
     _skuController = TextEditingController(text: _initialSku);
     _priceController = TextEditingController(text: _initialPrice);
-    _originalPriceController = TextEditingController(text: _initialOriginalPrice);
+    _originalPriceController = TextEditingController(
+      text: _initialOriginalPrice,
+    );
     _stockController = TextEditingController(text: _initialStock);
 
-    if (_initialFoodCategory != null && _foodCategories.contains(_initialFoodCategory)) {
-      _selectedFoodCategory = _initialFoodCategory;
+    final initialFoodCat = _initialFoodCategory;
+    if (initialFoodCat != null && initialFoodCat.trim().isNotEmpty) {
+      final matching = _categories
+          .where(
+            (c) =>
+                c.name == initialFoodCat ||
+                (p?.whoCategoryCode != null &&
+                    c.code.toUpperCase() == p!.whoCategoryCode!.toUpperCase()),
+          )
+          .firstOrNull;
+      if (matching != null) {
+        _selectedFoodCategory = matching.name;
+        _selectedWhoCategoryCode = matching.code;
+      } else {
+        final mapped = ProductCategory.mapToWhoCategory(_initialFoodCategory);
+        _selectedFoodCategory = mapped.name;
+        _selectedWhoCategoryCode = mapped.code;
+      }
+    } else if (p?.whoCategoryCode != null && p!.whoCategoryCode!.isNotEmpty) {
+      final found = ProductCategory.findByCode(p.whoCategoryCode);
+      if (found != null) {
+        _selectedFoodCategory = found.name;
+        _selectedWhoCategoryCode = found.code;
+      } else {
+        _selectedFoodCategory = null;
+        _selectedWhoCategoryCode = null;
+      }
     } else {
       _selectedFoodCategory = null;
+      _selectedWhoCategoryCode = null;
     }
     _images = List.from(_initialImages);
     _hasMultipleSkus = _initialHasMultipleSkus;
@@ -146,7 +196,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
             name: sku.name,
             sku: sku.sku,
             price: sku.price.round().toString(),
-            originalPrice: sku.originalPrice != null ? sku.originalPrice!.round().toString() : '',
+            originalPrice: sku.originalPrice != null
+                ? sku.originalPrice!.round().toString()
+                : '',
             stock: sku.stock.toString(),
           ),
         );
@@ -201,21 +253,44 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
 
     if (!_hasMultipleSkus) {
-      if (_skuController.text.trim() != _initialSku.trim()) return true;
-      if (_priceController.text.trim() != _initialPrice.trim()) return true;
-      if (_originalPriceController.text.trim() != _initialOriginalPrice.trim()) return true;
-      if (_stockController.text.trim() != _initialStock.trim()) return true;
+      if (_skuController.text.trim() != _initialSku.trim()) {
+        return true;
+      }
+      if (_priceController.text.trim() != _initialPrice.trim()) {
+        return true;
+      }
+      if (_originalPriceController.text.trim() !=
+          _initialOriginalPrice.trim()) {
+        return true;
+      }
+      if (_stockController.text.trim() != _initialStock.trim()) {
+        return true;
+      }
     } else {
-      if (_skuItems.length != _initialSkusSnapshot.length) return true;
+      if (_skuItems.length != _initialSkusSnapshot.length) {
+        return true;
+      }
       for (int i = 0; i < _skuItems.length; i++) {
         final form = _skuItems[i];
         final snap = _initialSkusSnapshot[i];
-        if (form.nameController.text.trim() != snap.name.trim()) return true;
-        if (form.skuController.text.trim() != snap.sku.trim()) return true;
-        if (form.priceController.text.trim() != snap.price.round().toString()) return true;
-        final orig = snap.originalPrice != null ? snap.originalPrice!.round().toString() : '';
-        if (form.originalPriceController.text.trim() != orig) return true;
-        if (form.stockController.text.trim() != snap.stock.toString()) return true;
+        if (form.nameController.text.trim() != snap.name.trim()) {
+          return true;
+        }
+        if (form.skuController.text.trim() != snap.sku.trim()) {
+          return true;
+        }
+        if (form.priceController.text.trim() != snap.price.round().toString()) {
+          return true;
+        }
+        final orig = snap.originalPrice != null
+            ? snap.originalPrice!.round().toString()
+            : '';
+        if (form.originalPriceController.text.trim() != orig) {
+          return true;
+        }
+        if (form.stockController.text.trim() != snap.stock.toString()) {
+          return true;
+        }
       }
     }
 
@@ -328,7 +403,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 height: 46,
                 child: OutlinedButton.icon(
                   onPressed: () => Navigator.of(ctx).pop('discard'),
-                  icon: const Icon(Iconsax.trash, size: 18, color: AppColors.error),
+                  icon: const Icon(
+                    Iconsax.trash,
+                    size: 18,
+                    color: AppColors.error,
+                  ),
                   label: const Text(
                     'Không lưu',
                     style: TextStyle(
@@ -338,7 +417,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
+                    side: BorderSide(
+                      color: AppColors.error.withValues(alpha: 0.3),
+                    ),
                     backgroundColor: AppColors.error.withValues(alpha: 0.04),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -390,9 +471,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     if (_hasMultipleSkus && _skuItems.isNotEmpty) {
       for (final item in _skuItems) {
-        final itemPrice = double.tryParse(item.priceController.text.trim()) ?? 0;
+        final itemPrice =
+            double.tryParse(item.priceController.text.trim()) ?? 0;
         final origStr = item.originalPriceController.text.trim();
-        final itemOriginalPrice = origStr.isNotEmpty ? double.tryParse(origStr) : null;
+        final itemOriginalPrice = origStr.isNotEmpty
+            ? double.tryParse(origStr)
+            : null;
         final itemStock = int.tryParse(item.stockController.text.trim()) ?? 0;
         final itemName = item.nameController.text.trim().isNotEmpty
             ? item.nameController.text.trim()
@@ -412,12 +496,16 @@ class _AddProductScreenState extends State<AddProductScreen> {
       price = skus.map((s) => s.price).reduce((a, b) => a < b ? a : b);
       stock = skus.fold(0, (sum, s) => sum + s.stock);
       if (sku.isEmpty) {
-        sku = skus.first.sku.isNotEmpty ? skus.first.sku : 'NHAP-${DateTime.now().millisecondsSinceEpoch % 100000}';
+        sku = skus.first.sku.isNotEmpty
+            ? skus.first.sku
+            : 'NHAP-${DateTime.now().millisecondsSinceEpoch % 100000}';
       }
     } else {
       price = double.tryParse(_priceController.text.trim()) ?? 0;
       final originalPriceText = _originalPriceController.text.trim();
-      originalPrice = originalPriceText.isNotEmpty ? double.tryParse(originalPriceText) : null;
+      originalPrice = originalPriceText.isNotEmpty
+          ? double.tryParse(originalPriceText)
+          : null;
       stock = int.tryParse(_stockController.text.trim()) ?? 0;
       if (sku.isEmpty) {
         sku = 'NHAP-${DateTime.now().millisecondsSinceEpoch % 100000}';
@@ -425,7 +513,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
 
     final draftProduct = SellerProductItem(
-      id: widget.initialProduct?.id ?? 'prod_${DateTime.now().millisecondsSinceEpoch}',
+      id:
+          widget.initialProduct?.id ??
+          'prod_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
       sku: sku,
       price: price,
@@ -434,7 +524,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
       imageUrl: _images.isNotEmpty ? _images.first : null,
       images: _images,
       categoryType: ProductCategoryType.draft,
-      foodCategory: _selectedFoodCategory ?? 'Chưa phân loại',
+      foodCategory: _selectedFoodCategory ?? 'Lương thực chính (Tinh bột)',
+      whoCategoryCode:
+          _selectedWhoCategoryCode ??
+          ProductCategory.mapToWhoCategory(_selectedFoodCategory).code,
       isAvailable: false,
       updatedAt: DateTime.now(),
       skus: skus,
@@ -450,16 +543,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
   void _showCategoryBottomSheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 36,
+              width: 40,
               height: 4,
               margin: const EdgeInsets.only(top: 8, bottom: 8),
               decoration: BoxDecoration(
@@ -471,16 +565,40 @@ class _AddProductScreenState extends State<AddProductScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: Row(
                 children: [
-                  const Icon(Iconsax.category_2, color: AppColors.primary, size: 20),
+                  const Icon(
+                    Iconsax.category_2,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   const Expanded(
-                    child: Text(
-                      'Chọn danh mục thực phẩm',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Chọn danh mục thực phẩm',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          '8 nhóm dinh dưỡng thực phẩm tiêu chuẩn từ Server',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Iconsax.close_circle, color: AppColors.textHint, size: 20),
+                    icon: const Icon(
+                      Iconsax.close_circle,
+                      color: AppColors.textHint,
+                      size: 20,
+                    ),
                     onPressed: () => Navigator.of(ctx).pop(),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -492,31 +610,76 @@ class _AddProductScreenState extends State<AddProductScreen> {
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
-                itemCount: _foodCategories.length,
-                separatorBuilder: (_, _) => const Divider(height: 1, indent: 16, endIndent: 16),
+                itemCount: _categories.length,
+                separatorBuilder: (_, _) =>
+                    const Divider(height: 1, indent: 16, endIndent: 16),
                 itemBuilder: (context, index) {
-                  final cat = _foodCategories[index];
-                  final isSelected = cat == _selectedFoodCategory;
+                  final cat = _categories[index];
+                  final isSelected =
+                      cat.code == _selectedWhoCategoryCode ||
+                      cat.name == _selectedFoodCategory;
                   return ListTile(
-                    leading: Icon(
-                      _getFoodCategoryIcon(cat),
-                      color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                      size: 22,
-                    ),
-                    title: Text(
-                      cat,
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    key: Key('category_item_$index'),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.1)
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        _getCategoryIcon(cat.code),
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                        size: 22,
                       ),
                     ),
+                    title: Text(
+                      cat.name,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                    subtitle: cat.examples.isNotEmpty
+                        ? Text(
+                            cat.examples,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textHint,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        : (cat.description.isNotEmpty
+                              ? Text(
+                                  cat.description,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textHint,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                )
+                              : null),
                     trailing: isSelected
-                        ? const Icon(Iconsax.tick_circle, color: AppColors.primary, size: 20)
+                        ? const Icon(
+                            Iconsax.tick_circle,
+                            color: AppColors.primary,
+                            size: 20,
+                          )
                         : null,
                     onTap: () {
                       setState(() {
-                        _selectedFoodCategory = cat;
+                        _selectedFoodCategory = cat.name;
+                        _selectedWhoCategoryCode = cat.code;
                         _categoryError = null;
                       });
                       Navigator.of(ctx).pop();
@@ -531,15 +694,79 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
+  IconData _getCategoryIcon(String? codeOrName) {
+    if (codeOrName == null) {
+      return Iconsax.category_2;
+    }
+    final upper = codeOrName.toUpperCase();
+    if (upper == 'STAPLES' ||
+        upper.contains('LƯƠNG THỰC') ||
+        upper.contains('TINH BỘT')) {
+      return Icons.grain;
+    }
+    if (upper == 'LEGUMES_NUTS_SEEDS' ||
+        upper.contains('ĐẬU') ||
+        upper.contains('HẠT')) {
+      return Iconsax.box_1;
+    }
+    if (upper == 'DAIRY' || upper.contains('SỮA')) {
+      return Icons.local_drink_outlined;
+    }
+    if (upper == 'MEAT_FISH_POULTRY' ||
+        upper.contains('THỊT') ||
+        upper.contains('CÁ') ||
+        upper.contains('GIA CẦM')) {
+      return Iconsax.reserve;
+    }
+    if (upper == 'EGGS' || upper.contains('TRỨNG')) {
+      return Icons.egg_outlined;
+    }
+    if (upper == 'VITAMIN_A_FRUITS_VEG' || upper.contains('VITAMIN A')) {
+      return Icons.eco_outlined;
+    }
+    if (upper == 'OTHER_FRUITS_VEG' ||
+        upper.contains('RAU CỦ') ||
+        upper.contains('HOA QUẢ') ||
+        upper.contains('TRÁI CÂY')) {
+      return Icons.apple;
+    }
+    if (upper == 'FATS_OILS' ||
+        upper.contains('CHẤT BÉO') ||
+        upper.contains('DẦU') ||
+        upper.contains('MỠ')) {
+      return Iconsax.blend_2;
+    }
+    return _getFoodCategoryIcon(codeOrName);
+  }
+
   IconData _getFoodCategoryIcon(String? cat) {
     if (cat == null) {
       return Iconsax.category_2;
     }
     final lower = cat.toLowerCase();
-    if (lower.contains('bò') || lower.contains('heo') || lower.contains('cừu') || lower.contains('gia cầm')) {
+    if (lower.contains('lương thực') ||
+        lower.contains('tinh bột') ||
+        lower.contains('gạo')) {
+      return Icons.grain;
+    }
+    if (lower.contains('sữa') ||
+        lower.contains('bơ') ||
+        lower.contains('phô mai')) {
+      return Icons.local_drink_outlined;
+    }
+    if (lower.contains('dầu') || lower.contains('mỡ')) {
+      return Iconsax.blend_2;
+    }
+    if (lower.contains('bò') ||
+        lower.contains('heo') ||
+        lower.contains('cừu') ||
+        lower.contains('gia cầm') ||
+        lower.contains('thịt')) {
       return Iconsax.reserve;
     }
-    if (lower.contains('thủy hải sản') || lower.contains('tôm') || lower.contains('cá')) {
+    if (lower.contains('thủy hải sản') ||
+        lower.contains('tôm') ||
+        lower.contains('cá')) {
       return Icons.set_meal;
     }
     if (lower.contains('trứng')) {
@@ -600,14 +827,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vui lòng kiểm tra lại các trường thông tin bắt buộc (*)'),
+          content: Text(
+            'Vui lòng kiểm tra lại các trường thông tin bắt buộc (*)',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    if (_selectedFoodCategory == null || _selectedFoodCategory!.trim().isEmpty) {
+    if (_selectedFoodCategory == null ||
+        _selectedFoodCategory!.trim().isEmpty) {
       setState(() {
         _categoryError = 'Vui lòng chọn danh mục thực phẩm';
       });
@@ -661,7 +891,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
         if (name.isEmpty || p == null || p <= 0 || s == null || s < 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Vui lòng nhập đủ Tên, Giá bán (> 0) và Tồn kho cho Phân loại #${i + 1}'),
+              content: Text(
+                'Vui lòng nhập đủ Tên, Giá bán (> 0) và Tồn kho cho Phân loại #${i + 1}',
+              ),
               backgroundColor: AppColors.error,
               behavior: SnackBarBehavior.floating,
             ),
@@ -694,7 +926,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
     } else {
       price = double.tryParse(_priceController.text.trim()) ?? 0;
       final originalPriceText = _originalPriceController.text.trim();
-      originalPrice = originalPriceText.isNotEmpty ? double.tryParse(originalPriceText) : null;
+      originalPrice = originalPriceText.isNotEmpty
+          ? double.tryParse(originalPriceText)
+          : null;
       stock = int.tryParse(_stockController.text.trim()) ?? 0;
       if (sku.isEmpty) {
         sku = 'TP-${DateTime.now().millisecondsSinceEpoch % 100000}';
@@ -702,7 +936,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
 
     final product = SellerProductItem(
-      id: widget.initialProduct?.id ?? 'prod_${DateTime.now().millisecondsSinceEpoch}',
+      id:
+          widget.initialProduct?.id ??
+          'prod_${DateTime.now().millisecondsSinceEpoch}',
       name: _nameController.text.trim(),
       sku: sku,
       price: price,
@@ -712,6 +948,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
       images: _images,
       categoryType: ProductCategoryType.underReview,
       foodCategory: _selectedFoodCategory!,
+      whoCategoryCode:
+          _selectedWhoCategoryCode ??
+          ProductCategory.mapToWhoCategory(_selectedFoodCategory).code,
       isAvailable: false,
       updatedAt: DateTime.now(),
       skus: skus,
@@ -781,7 +1020,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
             onPressed: _handleBackNavigation,
           ),
           title: Text(
-            widget.initialProduct != null ? 'Chỉnh sửa thực phẩm' : 'Thêm sản phẩm mới',
+            widget.initialProduct != null
+                ? 'Chỉnh sửa thực phẩm'
+                : 'Thêm sản phẩm mới',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -798,9 +1039,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   foregroundColor: Colors.white,
                   elevation: 0,
                   minimumSize: const Size(0, 34),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 child: const Text('Xét duyệt'),
               ),
@@ -834,13 +1083,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   children: [
                     const Text(
                       'Tên thực phẩm *',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _nameController,
                       decoration: const InputDecoration(
-                        hintText: 'VD: Thịt thăn bò Úc, Xúc xích xông khói, Trứng gà ta...',
+                        hintText:
+                            'VD: Thịt thăn bò Úc, Xúc xích xông khói, Trứng gà ta...',
                         prefixIcon: Icon(Iconsax.tag, size: 18),
                       ),
                       validator: (val) {
@@ -857,7 +1110,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     // Food category picker (opens Modal Bottom Sheet)
                     const Text(
                       'Danh mục thực phẩm *',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     InkWell(
@@ -865,18 +1121,26 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       onTap: _showCategoryBottomSheet,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: _categoryError != null ? AppColors.error : AppColors.border,
+                            color: _categoryError != null
+                                ? AppColors.error
+                                : AppColors.border,
                           ),
                         ),
                         child: Row(
                           children: [
                             Icon(
-                              _getFoodCategoryIcon(_selectedFoodCategory),
+                              _getCategoryIcon(
+                                _selectedWhoCategoryCode ??
+                                    _selectedFoodCategory,
+                              ),
                               size: 18,
                               color: _selectedFoodCategory != null
                                   ? AppColors.primary
@@ -885,7 +1149,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                _selectedFoodCategory ?? 'Chọn danh mục thực phẩm',
+                                _selectedFoodCategory ??
+                                    'Chọn danh mục thực phẩm',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: _selectedFoodCategory != null
@@ -924,7 +1189,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
               // 3. Price, Stock & Multiple SKUs Section
               _buildSectionCard(
                 title: 'Phân loại & Giá bán',
-                subtitle: 'Chọn hình thức quy cách phù hợp cho thực phẩm của bạn',
+                subtitle:
+                    'Chọn hình thức quy cách phù hợp cho thực phẩm của bạn',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -939,17 +1205,24 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         children: [
                           Expanded(
                             child: InkWell(
-                              onTap: () => setState(() => _hasMultipleSkus = false),
+                              onTap: () =>
+                                  setState(() => _hasMultipleSkus = false),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 9),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 9,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: !_hasMultipleSkus ? Colors.white : Colors.transparent,
+                                  color: !_hasMultipleSkus
+                                      ? Colors.white
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                   boxShadow: !_hasMultipleSkus
                                       ? [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.05),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.05,
+                                            ),
                                             blurRadius: 4,
                                             offset: const Offset(0, 1),
                                           ),
@@ -962,15 +1235,21 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                     Icon(
                                       Iconsax.box,
                                       size: 16,
-                                      color: !_hasMultipleSkus ? AppColors.primary : AppColors.textSecondary,
+                                      color: !_hasMultipleSkus
+                                          ? AppColors.primary
+                                          : AppColors.textSecondary,
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Duy nhất 1 loại',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        fontWeight: !_hasMultipleSkus ? FontWeight.bold : FontWeight.w500,
-                                        color: !_hasMultipleSkus ? AppColors.primary : AppColors.textSecondary,
+                                        fontWeight: !_hasMultipleSkus
+                                            ? FontWeight.bold
+                                            : FontWeight.w500,
+                                        color: !_hasMultipleSkus
+                                            ? AppColors.primary
+                                            : AppColors.textSecondary,
                                       ),
                                     ),
                                   ],
@@ -980,17 +1259,24 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           ),
                           Expanded(
                             child: InkWell(
-                              onTap: () => setState(() => _hasMultipleSkus = true),
+                              onTap: () =>
+                                  setState(() => _hasMultipleSkus = true),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 9),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 9,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: _hasMultipleSkus ? Colors.white : Colors.transparent,
+                                  color: _hasMultipleSkus
+                                      ? Colors.white
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                   boxShadow: _hasMultipleSkus
                                       ? [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.05),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.05,
+                                            ),
                                             blurRadius: 4,
                                             offset: const Offset(0, 1),
                                           ),
@@ -1003,15 +1289,21 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                     Icon(
                                       Iconsax.element_plus,
                                       size: 16,
-                                      color: _hasMultipleSkus ? AppColors.primary : AppColors.textSecondary,
+                                      color: _hasMultipleSkus
+                                          ? AppColors.primary
+                                          : AppColors.textSecondary,
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Nhiều phân loại',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        fontWeight: _hasMultipleSkus ? FontWeight.bold : FontWeight.w500,
-                                        color: _hasMultipleSkus ? AppColors.primary : AppColors.textSecondary,
+                                        fontWeight: _hasMultipleSkus
+                                            ? FontWeight.bold
+                                            : FontWeight.w500,
+                                        color: _hasMultipleSkus
+                                            ? AppColors.primary
+                                            : AppColors.textSecondary,
                                       ),
                                     ),
                                   ],
@@ -1028,7 +1320,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     if (!_hasMultipleSkus) ...[
                       const Text(
                         'Mã sản phẩm (Tùy chọn)',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       TextFormField(
@@ -1048,13 +1343,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               children: [
                                 const Text(
                                   'Giá bán (VNĐ) *',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _priceController,
                                   keyboardType: TextInputType.number,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                   decoration: const InputDecoration(
                                     hintText: 'VD: 55000',
                                     suffixText: 'đ',
@@ -1084,17 +1384,25 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               children: [
                                 const Text(
                                   'Giá gốc (Nếu có)',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _originalPriceController,
                                   keyboardType: TextInputType.number,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                   decoration: const InputDecoration(
                                     hintText: 'VD: 65000',
                                     suffixText: 'đ',
-                                    prefixIcon: Icon(Iconsax.ticket_discount, size: 18),
+                                    prefixIcon: Icon(
+                                      Iconsax.ticket_discount,
+                                      size: 18,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1105,7 +1413,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       const SizedBox(height: 14),
                       const Text(
                         'Số lượng tồn kho ban đầu *',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Row(
@@ -1120,7 +1431,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               controller: _stockController,
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
                               decoration: const InputDecoration(
                                 hintText: '10',
                                 prefixIcon: Icon(Iconsax.box, size: 18),
@@ -1150,17 +1463,27 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         decoration: BoxDecoration(
                           color: AppColors.primaryLight.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.2),
+                          ),
                         ),
                         child: const Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Iconsax.info_circle, color: AppColors.primary, size: 16),
+                            Icon(
+                              Iconsax.info_circle,
+                              color: AppColors.primary,
+                              size: 16,
+                            ),
                             SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 'Thêm các quy cách / phân loại của thực phẩm (VD: Gói nhỏ 250g, Gói to 500g, 1kg hoặc Vị cay / Vị truyền thống...).',
-                                style: TextStyle(fontSize: 12, color: AppColors.textPrimary, height: 1.3),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textPrimary,
+                                  height: 1.3,
+                                ),
                               ),
                             ),
                           ],
@@ -1187,7 +1510,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: AppColors.primary,
                                       borderRadius: BorderRadius.circular(6),
@@ -1204,7 +1530,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                   const Spacer(),
                                   if (_skuItems.length > 1)
                                     IconButton(
-                                      icon: const Icon(Iconsax.trash, size: 17, color: AppColors.error),
+                                      icon: const Icon(
+                                        Iconsax.trash,
+                                        size: 17,
+                                        color: AppColors.error,
+                                      ),
                                       onPressed: () => _removeSkuItem(idx),
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(),
@@ -1215,21 +1545,31 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               const SizedBox(height: 10),
                               const Text(
                                 'Tên phân loại / Quy cách *',
-                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               TextFormField(
                                 controller: item.nameController,
                                 decoration: const InputDecoration(
-                                  hintText: 'VD: Gói nhỏ 250g, Gói to 500g, Cắt khúc...',
+                                  hintText:
+                                      'VD: Gói nhỏ 250g, Gói to 500g, Cắt khúc...',
                                   prefixIcon: Icon(Iconsax.tag, size: 16),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 10),
                               const Text(
                                 'Mã sản phẩm phân loại (Tùy chọn)',
-                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               TextFormField(
@@ -1237,7 +1577,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                 decoration: const InputDecoration(
                                   hintText: 'VD: XX-250G',
                                   prefixIcon: Icon(Iconsax.barcode, size: 16),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -1245,22 +1588,36 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         const Text(
                                           'Giá bán (VNĐ) *',
-                                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                         const SizedBox(height: 4),
                                         TextFormField(
                                           controller: item.priceController,
                                           keyboardType: TextInputType.number,
-                                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
                                           decoration: const InputDecoration(
                                             hintText: 'VD: 45000',
                                             suffixText: 'đ',
-                                            prefixIcon: Icon(Iconsax.money, size: 16),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                            prefixIcon: Icon(
+                                              Iconsax.money,
+                                              size: 16,
+                                            ),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 10,
+                                                ),
                                           ),
                                         ),
                                       ],
@@ -1269,22 +1626,37 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         const Text(
                                           'Giá gốc (Nếu có)',
-                                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                         const SizedBox(height: 4),
                                         TextFormField(
-                                          controller: item.originalPriceController,
+                                          controller:
+                                              item.originalPriceController,
                                           keyboardType: TextInputType.number,
-                                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
                                           decoration: const InputDecoration(
                                             hintText: 'VD: 55000',
                                             suffixText: 'đ',
-                                            prefixIcon: Icon(Iconsax.ticket_discount, size: 16),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                            prefixIcon: Icon(
+                                              Iconsax.ticket_discount,
+                                              size: 16,
+                                            ),
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 10,
+                                                ),
                                           ),
                                         ),
                                       ],
@@ -1295,7 +1667,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               const SizedBox(height: 10),
                               const Text(
                                 'Số lượng tồn kho *',
-                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Row(
@@ -1311,11 +1686,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                       controller: item.stockController,
                                       keyboardType: TextInputType.number,
                                       textAlign: TextAlign.center,
-                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
                                       decoration: const InputDecoration(
                                         hintText: '10',
                                         prefixIcon: Icon(Iconsax.box, size: 16),
-                                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1339,81 +1718,140 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         label: const Text('+ Thêm phân loại mới'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary, width: 1.2),
+                          side: const BorderSide(
+                            color: AppColors.primary,
+                            width: 1.2,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           minimumSize: const Size(double.infinity, 44),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
 
                       // SKU Summary Box
-                      Builder(builder: (context) {
-                        final totalStock = _skuItems.fold<int>(
-                          0,
-                          (sum, item) => sum + (int.tryParse(item.stockController.text.trim()) ?? 0),
-                        );
-                        final prices = _skuItems
-                            .map((e) => double.tryParse(e.priceController.text.trim()) ?? 0)
-                            .where((p) => p > 0)
-                            .toList();
+                      Builder(
+                        builder: (context) {
+                          final totalStock = _skuItems.fold<int>(
+                            0,
+                            (sum, item) =>
+                                sum +
+                                (int.tryParse(
+                                      item.stockController.text.trim(),
+                                    ) ??
+                                    0),
+                          );
+                          final prices = _skuItems
+                              .map(
+                                (e) =>
+                                    double.tryParse(
+                                      e.priceController.text.trim(),
+                                    ) ??
+                                    0,
+                              )
+                              .where((p) => p > 0)
+                              .toList();
 
-                        String priceRangeText = 'Chưa thiết lập';
-                        if (prices.isNotEmpty) {
-                          final min = prices.reduce((a, b) => a < b ? a : b);
-                          final max = prices.reduce((a, b) => a > b ? a : b);
-                          priceRangeText = min == max
-                              ? _formatPrice(min)
-                              : '${_formatPrice(min)} - ${_formatPrice(max)}';
-                        }
+                          String priceRangeText = 'Chưa thiết lập';
+                          if (prices.isNotEmpty) {
+                            final min = prices.reduce((a, b) => a < b ? a : b);
+                            final max = prices.reduce((a, b) => a > b ? a : b);
+                            priceRangeText = min == max
+                                ? _formatPrice(min)
+                                : '${_formatPrice(min)} - ${_formatPrice(max)}';
+                          }
 
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              Column(
-                                children: [
-                                  const Text('Số phân loại', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${_skuItems.length} loại',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                  ),
-                                ],
-                              ),
-                              Container(height: 24, width: 1, color: Colors.grey.shade300),
-                              Column(
-                                children: [
-                                  const Text('Tổng kho', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '$totalStock',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
-                                  ),
-                                ],
-                              ),
-                              Container(height: 24, width: 1, color: Colors.grey.shade300),
-                              Column(
-                                children: [
-                                  const Text('Khoảng giá', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    priceRangeText,
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                Column(
+                                  children: [
+                                    const Text(
+                                      'Số phân loại',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${_skuItems.length} loại',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  height: 24,
+                                  width: 1,
+                                  color: Colors.grey.shade300,
+                                ),
+                                Column(
+                                  children: [
+                                    const Text(
+                                      'Tổng kho',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$totalStock',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  height: 24,
+                                  width: 1,
+                                  color: Colors.grey.shade300,
+                                ),
+                                Column(
+                                  children: [
+                                    const Text(
+                                      'Khoảng giá',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      priceRangeText,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ],
                 ),
@@ -1426,7 +1864,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.info.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.info.withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: AppColors.info.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

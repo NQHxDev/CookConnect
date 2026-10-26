@@ -146,16 +146,17 @@ class SellerAuthService extends ChangeNotifier {
   }
 
   /// Send OTP for registration to email
-  Future<OtpResult> sendOtp({required String contact}) async {
-    return _apiService.sendOtp(contact: contact);
+  Future<OtpResult> sendOtp({required String contact, String? deviceId}) async {
+    return _apiService.sendOtp(contact: contact, deviceId: deviceId);
   }
 
   /// Verify OTP code to obtain verificationToken
   Future<OtpResult> verifyOtp({
     required String contact,
     required String otp,
+    String? deviceId,
   }) async {
-    return _apiService.verifyOtp(contact: contact, otp: otp);
+    return _apiService.verifyOtp(contact: contact, otp: otp, deviceId: deviceId);
   }
 
   /// Login with email and password
@@ -199,7 +200,7 @@ class SellerAuthService extends ChangeNotifier {
     return result;
   }
 
-  /// Register a new supplier admin account (Step 3: Password creation)
+  /// Register a new supplier admin account (Step 3: Password creation via merged API)
   Future<SellerAuthResult> register({
     required String email,
     required String password,
@@ -208,6 +209,7 @@ class SellerAuthService extends ChangeNotifier {
     String? fullName,
     String? phone,
     String? verificationToken,
+    String? deviceId,
   }) async {
     final result = await _apiService.register(
       email: email,
@@ -217,11 +219,12 @@ class SellerAuthService extends ChangeNotifier {
       storeName: storeName,
       fullName: fullName,
       phone: phone,
+      deviceId: deviceId,
     );
     if (result.success && result.tokens != null) {
       final defaultName = fullName ?? (email.contains('@') ? email.split('@').first : email);
       final defaultStore = storeName ?? 'Gian hàng $defaultName';
-      final user = result.user ??
+      var user = result.user ??
           SellerUser(
             id: 'supplier_${DateTime.now().millisecondsSinceEpoch}',
             email: email,
@@ -229,6 +232,15 @@ class SellerAuthService extends ChangeNotifier {
             fullName: defaultName,
             phone: phone,
           );
+      if (user.fullName == null || user.fullName!.isEmpty) {
+        user = user.copyWith(fullName: defaultName);
+      }
+      if (user.storeName == null || user.storeName!.isEmpty) {
+        user = user.copyWith(storeName: defaultStore);
+      }
+      if (user.phone == null && phone != null) {
+        user = user.copyWith(phone: phone);
+      }
       _hasSupplier = false;
       _supplierProfile = null;
       setSession(user: user, tokens: result.tokens!);

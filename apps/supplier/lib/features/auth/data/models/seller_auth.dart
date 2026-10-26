@@ -248,15 +248,16 @@ class SellerAuthResult {
       user = SellerUser.fromJson(data['seller'] as Map<String, dynamic>);
     }
 
+    final rawStatusCode = (json['statusCode'] as num?)?.toInt();
     final isSuccess = json['success'] as bool? ??
-        (json['statusCode'] == null || (json['statusCode'] as int) < 400);
+        (rawStatusCode == null || rawStatusCode < 400);
 
     return SellerAuthResult(
       success: isSuccess,
       message: json['message']?.toString() ?? json['error']?.toString() ?? (isSuccess ? 'Thành công' : 'Thất bại'),
       tokens: tokens,
       user: user,
-      statusCode: (json['statusCode'] as num?)?.toInt(),
+      statusCode: rawStatusCode,
     );
   }
 }

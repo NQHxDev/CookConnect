@@ -28,11 +28,13 @@ class ApiConfig {
   static String get healthPath => '/api/$apiVersion/health';
 
   // Supplier Admin Auth Endpoints (Phase 1: Account registration)
+  // Note: Backend server unified account registration into /api/v1/auth/register
   static String get sendOtpPath => '/api/$apiVersion/auth/register/send-otp';
-  static String get verifyOtpPath => '/api/$apiVersion/auth/register/verify-otp';
+  static String get verifyOtpPath =>
+      '/api/$apiVersion/auth/register/verify-otp';
   static String get loginPath => '/api/$apiVersion/auth/login';
-  static String get registerSupplierPath => '/api/$apiVersion/auth/register-supplier';
-  static String get registerPath => registerSupplierPath;
+  static String get registerPath => '/api/$apiVersion/auth/register';
+  static String get registerSupplierPath => registerPath;
   static String get refreshPath => '/api/$apiVersion/auth/refresh';
   static String get logoutPath => '/api/$apiVersion/auth/logout';
   static String get mePath => '/api/$apiVersion/auth/me';
@@ -44,17 +46,35 @@ class ApiConfig {
   static String get storeStatusPath => '/api/$apiVersion/suppliers/me/status';
 
   // Supplier Dashboard & Stats
-  static String get dashboardStatsPath => '/api/$apiVersion/supplier/dashboard/stats';
+  static String get dashboardStatsPath =>
+      '/api/$apiVersion/supplier/dashboard/stats';
 
   // Supplier Orders
   static String get ordersPath => '/api/$apiVersion/supplier/orders';
-  static String orderDetailPath(String orderId) => '/api/$apiVersion/supplier/orders/$orderId';
-  static String orderStatusPath(String orderId) => '/api/$apiVersion/supplier/orders/$orderId/status';
+  static String orderDetailPath(String orderId) =>
+      '/api/$apiVersion/supplier/orders/$orderId';
+  static String orderStatusPath(String orderId) =>
+      '/api/$apiVersion/supplier/orders/$orderId/status';
 
   // Supplier Menu / Products
   static String get menuItemsPath => '/api/$apiVersion/commerce/products';
-  static String menuItemDetailPath(String itemId) => '/api/$apiVersion/commerce/products/$itemId';
-  static String get menuCategoriesPath => '/api/$apiVersion/commerce/ingredients/categories';
+  static String menuItemDetailPath(String itemId) =>
+      '/api/$apiVersion/commerce/products/$itemId';
+  static String get menuCategoriesPath =>
+      '/api/$apiVersion/commerce/ingredients/categories';
+  static String get productCategoriesPath =>
+      '/api/$apiVersion/products/categories';
+
+  // Product Management (POST /api/v1/products - WHO categories & Raw ingredients)
+  static String get productsPath => '/api/$apiVersion/products';
+  static String productDetailPath(String productId) =>
+      '/api/$apiVersion/products/$productId';
+  static String productStatusPath(String productId) =>
+      '/api/$apiVersion/products/$productId/status';
+  static String productVariantStockPath(String variantId) =>
+      '/api/$apiVersion/products/variants/$variantId/stock';
+  // Media Endpoints
+  static String get mediaUploadPath => '/api/$apiVersion/media/upload';
 
   // Helper getters for full endpoint URLs
   static String get apiBaseUrl => '$baseUrl/api/$apiVersion';
@@ -62,8 +82,8 @@ class ApiConfig {
   static String get sendOtpUrl => '$baseUrl$sendOtpPath';
   static String get verifyOtpUrl => '$baseUrl$verifyOtpPath';
   static String get loginUrl => '$baseUrl$loginPath';
-  static String get registerSupplierUrl => '$baseUrl$registerSupplierPath';
   static String get registerUrl => '$baseUrl$registerPath';
+  static String get registerSupplierUrl => registerUrl;
   static String get refreshUrl => '$baseUrl$refreshPath';
   static String get logoutUrl => '$baseUrl$logoutPath';
   static String get meUrl => '$baseUrl$mePath';
@@ -73,6 +93,9 @@ class ApiConfig {
   static String get ordersUrl => '$baseUrl$ordersPath';
   static String get menuItemsUrl => '$baseUrl$menuItemsPath';
   static String get menuCategoriesUrl => '$baseUrl$menuCategoriesPath';
+  static String get productCategoriesUrl => '$baseUrl$productCategoriesPath';
   static String get storeProfileUrl => '$baseUrl$storeProfilePath';
   static String get storeStatusUrl => '$baseUrl$storeStatusPath';
+  static String get productsUrl => '$baseUrl$productsPath';
+  static String get mediaUploadUrl => '$baseUrl$mediaUploadPath';
 }

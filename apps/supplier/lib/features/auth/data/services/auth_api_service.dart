@@ -10,11 +10,19 @@ class AuthApiService {
   AuthApiService({ApiClient? apiClient}) : _client = apiClient ?? ApiClient();
 
   /// Send 6-digit OTP to Email for supplier registration
-  Future<OtpResult> sendOtp({required String contact}) async {
+  Future<OtpResult> sendOtp({
+    required String contact,
+    String clientType = 'mobile',
+    String? deviceId,
+  }) async {
     final cleanContact = contact.trim().toLowerCase();
     try {
       final response = await _client.post(
         ApiConfig.sendOtpPath,
+        headers: {
+          'X-Client-Type': clientType,
+          if (deviceId != null && deviceId.isNotEmpty) 'X-Device-Id': deviceId,
+        },
         body: {
           'email': cleanContact,
         },
@@ -36,6 +44,8 @@ class AuthApiService {
   Future<OtpResult> verifyOtp({
     required String contact,
     required String otp,
+    String clientType = 'mobile',
+    String? deviceId,
   }) async {
     final cleanContact = contact.trim().toLowerCase();
     final cleanOtp = otp.trim();
@@ -43,6 +53,10 @@ class AuthApiService {
     try {
       final response = await _client.post(
         ApiConfig.verifyOtpPath,
+        headers: {
+          'X-Client-Type': clientType,
+          if (deviceId != null && deviceId.isNotEmpty) 'X-Device-Id': deviceId,
+        },
         body: {
           'email': cleanContact,
           'otp': cleanOtp,
@@ -65,14 +79,21 @@ class AuthApiService {
   Future<SellerAuthResult> login({
     required String email,
     required String password,
+    String clientType = 'mobile',
+    String? deviceId,
   }) async {
     try {
       final response = await _client.post(
         ApiConfig.loginPath,
+        headers: {
+          'X-Client-Type': clientType,
+          if (deviceId != null && deviceId.isNotEmpty) 'X-Device-Id': deviceId,
+        },
         body: {
           'email': email.trim().toLowerCase(),
           'password': password,
-          'clientType': 'mobile',
+          'clientType': clientType,
+          if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
         },
       );
       return SellerAuthResult.fromJson(response);
@@ -94,14 +115,21 @@ class AuthApiService {
   Future<SellerAuthResult> loginWithPhone({
     required String phone,
     required String password,
+    String clientType = 'mobile',
+    String? deviceId,
   }) async {
     try {
       final response = await _client.post(
         ApiConfig.loginPath,
+        headers: {
+          'X-Client-Type': clientType,
+          if (deviceId != null && deviceId.isNotEmpty) 'X-Device-Id': deviceId,
+        },
         body: {
           'phone': phone.trim(),
           'password': password,
-          'clientType': 'mobile',
+          'clientType': clientType,
+          if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
         },
       );
       return SellerAuthResult.fromJson(response);
@@ -119,7 +147,7 @@ class AuthApiService {
     }
   }
 
-  /// Register new Supplier Admin account (Step 3: Password creation)
+  /// Register new Supplier Admin account (Step 3: Account creation via merged POST /api/v1/auth/register)
   Future<SellerAuthResult> register({
     required String email,
     required String password,
@@ -128,15 +156,24 @@ class AuthApiService {
     String? storeName,
     String? fullName,
     String? phone,
+    String? deviceId,
+    String clientType = 'mobile',
+    String appVersion = '1.0.0',
   }) async {
     try {
       final response = await _client.post(
-        ApiConfig.registerSupplierPath,
+        ApiConfig.registerPath,
+        headers: {
+          'X-Client-Type': clientType,
+          if (deviceId != null && deviceId.isNotEmpty) 'X-Device-Id': deviceId,
+        },
         body: {
           'email': email.trim().toLowerCase(),
           'password': password,
           'confirmPassword': confirmPassword ?? password,
-          'clientType': 'mobile',
+          'clientType': clientType,
+          if (appVersion.isNotEmpty) 'appVersion': appVersion,
+          if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
           if (verificationToken != null && verificationToken.isNotEmpty)
             'verificationToken': verificationToken,
         },

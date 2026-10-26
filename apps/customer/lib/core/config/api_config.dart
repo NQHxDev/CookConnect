@@ -19,18 +19,23 @@ class ApiConfig {
 
   /// Relative Paths
   static String get healthPath => '/api/$apiVersion/health';
-  static String get checkUsernamePath => '/api/$apiVersion/users/check-username';
+  static String get checkUsernamePath =>
+      '/api/$apiVersion/users/check-username';
   static String get avatarPath => '/api/$apiVersion/users/me/avatar';
   static String get userProfilePath => '/api/$apiVersion/users/profile';
-  static String get userPersonalInfoPath => '/api/$apiVersion/users/me/personal-info';
-  static String get userDisplayNamePath => '/api/$apiVersion/users/me/display-name';
+  static String get userPersonalInfoPath =>
+      '/api/$apiVersion/users/me/personal-info';
+  static String get userDisplayNamePath =>
+      '/api/$apiVersion/users/me/display-name';
   static String get userBioPath => '/api/$apiVersion/users/me/bio';
   static String get userLocationPath => '/api/$apiVersion/users/me/location';
   static String get userWebsitePath => '/api/$apiVersion/users/me/website';
-  static String get userCoverImagePath => '/api/$apiVersion/users/me/cover-image';
+  static String get userCoverImagePath =>
+      '/api/$apiVersion/users/me/cover-image';
   static String get userUsernamePath => '/api/$apiVersion/users/me/username';
   static String get sendOtpPath => '/api/$apiVersion/auth/register/send-otp';
-  static String get verifyOtpPath => '/api/$apiVersion/auth/register/verify-otp';
+  static String get verifyOtpPath =>
+      '/api/$apiVersion/auth/register/verify-otp';
   static String get registerPath => '/api/$apiVersion/auth/register';
   static String get loginPath => '/api/$apiVersion/auth/login';
   static String get logoutPath => '/api/$apiVersion/auth/logout';
@@ -40,6 +45,8 @@ class ApiConfig {
   static String get userSuggestionsPath => '/api/$apiVersion/users/suggestions';
   static String get postsPath => '/api/$apiVersion/posts';
   static String get postFeedPath => '/api/$apiVersion/posts/feed';
+  static String get productCategoriesPath =>
+      '/api/$apiVersion/products/categories';
 
   /// Helper getters for full endpoint URLs
   static String get apiBaseUrl => '$baseUrl/api/$apiVersion';
@@ -66,4 +73,5 @@ class ApiConfig {
   static String get userSuggestionsUrl => '$baseUrl$userSuggestionsPath';
   static String get postsUrl => '$baseUrl$postsPath';
   static String get postFeedUrl => '$baseUrl$postFeedPath';
+  static String get productCategoriesUrl => '$baseUrl$productCategoriesPath';
 }

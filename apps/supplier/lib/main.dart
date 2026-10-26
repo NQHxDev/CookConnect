@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:flutter_remix/flutter_remix.dart';
 import 'package:cook_connect_seller/core/config/api_config.dart';
@@ -16,6 +17,9 @@ import 'package:cook_connect_seller/features/settings/presentation/pages/setting
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
   debugPrint('CookConnect Seller started with Base URL: ${ApiConfig.baseUrl}');
   await SellerAuthService.instance.init();
   runApp(const CookConnectSellerApp());

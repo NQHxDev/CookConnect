@@ -34,7 +34,7 @@ class AuthTokens {
     accessToken: json['accessToken'] as String? ?? json['token'] as String? ?? '',
     refreshToken: json['refreshToken'] as String? ?? '',
     tokenType: json['tokenType'] as String? ?? 'Bearer',
-    expiresIn: json['expiresIn'] as int? ?? 3600,
+    expiresIn: (json['expiresIn'] as num?)?.toInt() ?? 3600,
     createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
   );
 }

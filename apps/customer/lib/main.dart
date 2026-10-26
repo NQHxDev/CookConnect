@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'package:cookconnect/features/main/presentation/pages/main_screen.dart';
@@ -6,6 +7,9 @@ import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
   MediaKit.ensureInitialized();
   await ApiI18n.init();
   await AuthService.instance.init();
