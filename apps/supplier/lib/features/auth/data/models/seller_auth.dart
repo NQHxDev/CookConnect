@@ -34,6 +34,40 @@ class SupplierProfile {
     this.memberStatus,
   });
 
+  SupplierProfile copyWith({
+    String? supplierId,
+    String? supplierName,
+    String? supplierSlug,
+    String? supplierCode,
+    String? contactEmail,
+    String? contactPhone,
+    String? address,
+    String? city,
+    double? rating,
+    bool? isVerified,
+    String? supplierStatus,
+    String? supplierLogoUrl,
+    String? role,
+    String? memberStatus,
+  }) {
+    return SupplierProfile(
+      supplierId: supplierId ?? this.supplierId,
+      supplierName: supplierName ?? this.supplierName,
+      supplierSlug: supplierSlug ?? this.supplierSlug,
+      supplierCode: supplierCode ?? this.supplierCode,
+      contactEmail: contactEmail ?? this.contactEmail,
+      contactPhone: contactPhone ?? this.contactPhone,
+      address: address ?? this.address,
+      city: city ?? this.city,
+      rating: rating ?? this.rating,
+      isVerified: isVerified ?? this.isVerified,
+      supplierStatus: supplierStatus ?? this.supplierStatus,
+      supplierLogoUrl: supplierLogoUrl ?? this.supplierLogoUrl,
+      role: role ?? this.role,
+      memberStatus: memberStatus ?? this.memberStatus,
+    );
+  }
+
   factory SupplierProfile.fromJson(Map<String, dynamic> json) {
     return SupplierProfile(
       supplierId: json['supplierId']?.toString() ?? json['id']?.toString() ?? '',

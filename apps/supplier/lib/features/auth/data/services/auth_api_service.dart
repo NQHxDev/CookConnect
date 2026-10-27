@@ -233,6 +233,45 @@ class AuthApiService {
     return MySupplierResult.fromJson(response);
   }
 
+  /// Update supplier store details via PATCH /api/v1/suppliers/{supplierId}
+  Future<SupplierProfile?> updateSupplier({
+    required String token,
+    required String supplierId,
+    required Map<String, dynamic> body,
+  }) async {
+    try {
+      final response = await _client.patch(
+        ApiConfig.supplierDetailPath(supplierId),
+        token: token,
+        body: body,
+      );
+      final data = response['data'] is Map<String, dynamic>
+          ? response['data'] as Map<String, dynamic>
+          : response;
+      return SupplierProfile.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Update supplier status via PATCH /api/v1/suppliers/{supplierId}/status
+  Future<bool> updateSupplierStatus({
+    required String token,
+    required String supplierId,
+    required String status,
+  }) async {
+    try {
+      await _client.patch(
+        ApiConfig.supplierStatusPath(supplierId),
+        token: token,
+        body: {'status': status},
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Update store profile
   Future<bool> updateStoreProfile({
     required String token,
@@ -250,11 +289,15 @@ class AuthApiService {
     }
   }
 
-  /// Proactive refresh token
+  /// Proactive refresh token via /api/v1/auth/refresh
   Future<SellerAuthResult> refreshToken(String refreshToken) async {
     try {
       final response = await _client.post(
         ApiConfig.refreshPath,
+        headers: {
+          'x-refresh-token': refreshToken,
+          'X-Refresh-Token': refreshToken,
+        },
         body: {'refreshToken': refreshToken},
       );
       return SellerAuthResult.fromJson(response);
@@ -282,7 +325,7 @@ class AuthApiService {
     }
   }
 
-  /// Get authenticated user profile from Auth service
+  /// Get authenticated user profile from Auth service (/api/v1/auth/me)
   Future<SellerUser?> getMe(String token) async {
     try {
       final response = await _client.get(ApiConfig.mePath, token: token);
@@ -291,6 +334,22 @@ class AuthApiService {
         return SellerUser.fromJson(data);
       }
       return null;
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get user profile details from User service (/api/v1/users/me)
+  Future<Map<String, dynamic>?> getUserProfile(String token) async {
+    try {
+      final response = await _client.get(ApiConfig.userMePath, token: token);
+      return response['data'] is Map<String, dynamic>
+          ? response['data'] as Map<String, dynamic>
+          : response;
+    } on ApiException {
+      rethrow;
     } catch (_) {
       return null;
     }

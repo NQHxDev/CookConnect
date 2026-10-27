@@ -3,7 +3,6 @@ import 'package:iconsax/iconsax.dart';
 import 'package:flutter_remix/flutter_remix.dart';
 import 'package:cook_connect_seller/core/theme/app_colors.dart';
 import 'package:cook_connect_seller/core/widgets/google_logo.dart';
-import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
 import 'package:cook_connect_seller/features/auth/presentation/pages/email_phone_auth_screen.dart';
 import 'package:cook_connect_seller/features/auth/presentation/pages/seller_register_contact_screen.dart';
 import 'package:cook_connect_seller/features/auth/presentation/pages/social_auth_screen.dart';
@@ -42,11 +41,6 @@ class WelcomeAuthScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  void _handleDemoLogin(BuildContext context) {
-    SellerAuthService.instance.setDemoSession();
-    onLoginSuccess?.call();
   }
 
   @override
@@ -152,24 +146,6 @@ class WelcomeAuthScreen extends StatelessWidget {
                 textColor: AppColors.textPrimary,
                 borderColor: Colors.grey.shade300,
                 onPressed: () => _navigateToSocial(context, 'apple'),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Quick Demo Seller Access
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => _handleDemoLogin(context),
-                  icon: const Icon(Iconsax.magicpen, size: 16, color: AppColors.primary),
-                  label: const Text(
-                    'Dùng thử tài khoản mẫu (Demo Seller)',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
               ),
 
               const Spacer(),

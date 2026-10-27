@@ -8,7 +8,7 @@ import 'package:cook_connect_seller/features/auth/data/models/seller_auth.dart';
 import 'package:cook_connect_seller/features/auth/data/services/auth_api_service.dart';
 
 /// Global singleton session and authentication state manager for CookConnect Supplier.
-class SellerAuthService extends ChangeNotifier {
+class SellerAuthService extends ChangeNotifier with WidgetsBindingObserver {
   static final SellerAuthService instance = SellerAuthService._internal();
 
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -29,11 +29,15 @@ class SellerAuthService extends ChangeNotifier {
   bool _isInitialized = false;
   Completer<String?>? _refreshCompleter;
 
+  bool _isValidatingSession = false;
+  DateTime? _lastValidationTime;
+  bool _isObserverRegistered = false;
+
   SellerUser? get currentUser => _currentUser;
   AuthTokens? get tokens => _tokens;
   bool get hasSupplier => _hasSupplier;
   SupplierProfile? get supplierProfile => _supplierProfile;
-  bool get isLoggedIn => _currentUser != null && _tokens != null && !_tokens!.isExpired;
+  bool get isLoggedIn => _currentUser != null && _tokens != null;
   bool get isInitialized => _isInitialized;
 
   void _setupApiClientHandlers() {
@@ -48,30 +52,37 @@ class SellerAuthService extends ChangeNotifier {
     _setupApiClientHandlers();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      handleAppResumed();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_isObserverRegistered) {
+      WidgetsBinding.instance.removeObserver(this);
+      _isObserverRegistered = false;
+    }
+    super.dispose();
+  }
+
   /// Initialize session from secure storage (KeyStore / Keychain)
   Future<void> init() async {
     try {
+      if (!_isObserverRegistered) {
+        WidgetsBinding.instance.addObserver(this);
+        _isObserverRegistered = true;
+      }
+
       final cachedTokens = await _storage.getTokens();
       final cachedProfile = await _storage.getSellerProfile();
 
       if (cachedTokens != null) {
-        if (cachedTokens.isExpired) {
-          if (cachedTokens.refreshToken.isNotEmpty &&
-              !cachedTokens.accessToken.startsWith('demo-')) {
-            final refreshResult = await _apiService.refreshToken(cachedTokens.refreshToken);
-            if (refreshResult.success && refreshResult.tokens != null) {
-              _tokens = refreshResult.tokens;
-              _currentUser = refreshResult.user ??
-                  (cachedProfile != null ? SellerUser.fromJson(cachedProfile) : null);
-              await _storage.saveTokens(_tokens!);
-              if (_currentUser != null) {
-                await _storage.saveSellerProfile(_currentUser!.toJson());
-              }
-              await checkSupplierStatus();
-              notifyListeners();
-              return;
-            }
-          }
+        // If both tokens are expired or refresh token is expired, reject immediately
+        if (cachedTokens.isRefreshTokenExpired() ||
+            (cachedTokens.isAccessTokenExpired() && cachedTokens.refreshToken.isEmpty)) {
           await _storage.clearAuth();
           _tokens = null;
           _currentUser = null;
@@ -88,15 +99,10 @@ class SellerAuthService extends ChangeNotifier {
             _hasSupplier = true;
           }
         }
-
-        // Check live supplier onboarding status if valid access token
-        if (_tokens != null &&
-            !_tokens!.accessToken.startsWith('demo-') &&
-            !_tokens!.accessToken.startsWith('social-')) {
-          await checkSupplierStatus();
-        }
-
         notifyListeners();
+
+        // Restore & refresh profile/token with backend
+        await restoreSession();
       }
     } catch (e) {
       debugPrint('SellerAuthService init error: $e');
@@ -109,6 +115,105 @@ class SellerAuthService extends ChangeNotifier {
     } finally {
       _isInitialized = true;
       notifyListeners();
+    }
+  }
+
+  /// Triggered when returning to the app from background (resumed).
+  /// Re-validates the session, proactively refreshes expired tokens,
+  /// and fetches fresh supplier store and user data.
+  /// If unsuccessful due to expired/invalid token or revoked session, logs out immediately.
+  Future<void> handleAppResumed() async {
+    if (_tokens == null || _currentUser == null) {
+      return;
+    }
+
+    if (_tokens!.accessToken.startsWith('demo-') ||
+        _tokens!.accessToken.startsWith('social-')) {
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastValidationTime != null &&
+        now.difference(_lastValidationTime!) < const Duration(seconds: 2)) {
+      return;
+    }
+
+    if (_isValidatingSession) {
+      return;
+    }
+
+    _isValidatingSession = true;
+    _lastValidationTime = now;
+
+    try {
+      await restoreSession();
+    } finally {
+      _isValidatingSession = false;
+    }
+  }
+
+  /// Restore and sync supplier session with backend.
+  /// Validates token and queries /api/v1/suppliers/me and /api/v1/auth/me.
+  /// If token has expired or credentials are rejected, logs out immediately.
+  Future<void> restoreSession() async {
+    final currentTokens = _tokens;
+    if (currentTokens == null) return;
+
+    if (currentTokens.accessToken.startsWith('demo-') ||
+        currentTokens.accessToken.startsWith('social-')) {
+      return;
+    }
+
+    // 1. Proactive token check: If refresh token is expired, session is irrecoverable -> logout
+    if (currentTokens.isRefreshTokenExpired() ||
+        (currentTokens.isAccessTokenExpired() && currentTokens.refreshToken.isEmpty)) {
+      await logout(callServer: false, sessionExpired: true);
+      return;
+    }
+
+    // 2. If access token is expired, proactively rotate via /api/v1/auth/refresh
+    if (currentTokens.isAccessTokenExpired()) {
+      final newToken = await refreshAccessToken();
+      if (newToken == null) {
+        // Refresh failed (invalid/expired/revoked) -> user logged out in refreshAccessToken
+        return;
+      }
+    }
+
+    try {
+      final activeTokens = _tokens;
+      if (activeTokens == null) return;
+
+      // 3. Fetch & validate supplier store profile (GET /api/v1/suppliers/me)
+      await checkSupplierStatus();
+
+      // 4. Fetch & validate user account data (GET /api/v1/auth/me)
+      if (_tokens != null) {
+        try {
+          final meUser = await _apiService.getMe(_tokens!.accessToken);
+          if (meUser != null && _currentUser != null) {
+            _currentUser = _currentUser!.copyWith(
+              id: meUser.id.isNotEmpty ? meUser.id : _currentUser!.id,
+              email: meUser.email.isNotEmpty ? meUser.email : _currentUser!.email,
+              roles: meUser.roles.isNotEmpty ? meUser.roles : _currentUser!.roles,
+            );
+            await _storage.saveSellerProfile(_currentUser!.toJson());
+            notifyListeners();
+          }
+        } on ApiException catch (e) {
+          if (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 404) {
+            await logout(callServer: false, sessionExpired: true);
+            return;
+          }
+        } catch (_) {}
+      }
+    } on ApiException catch (e) {
+      debugPrint('SellerAuthService restoreSession ApiException: ${e.statusCode} ${e.message}');
+      if (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 404) {
+        await logout(callServer: false, sessionExpired: true);
+      }
+    } catch (e) {
+      debugPrint('SellerAuthService restoreSession error: $e');
     }
   }
 
@@ -138,7 +243,7 @@ class SellerAuthService extends ChangeNotifier {
       return result;
     } catch (e) {
       debugPrint('checkSupplierStatus failed: $e');
-      if (e is ApiException && (e.statusCode == 401 || e.statusCode == 403)) {
+      if (e is ApiException && (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 404)) {
         await logout(callServer: false, sessionExpired: true);
       }
       return null;
@@ -318,6 +423,94 @@ class SellerAuthService extends ChangeNotifier {
     return profile;
   }
 
+  /// Update detailed supplier store information
+  Future<bool> updateSupplierStoreDetails({
+    required String storeName,
+    String? contactPhone,
+    String? contactEmail,
+    String? address,
+    String? city,
+    String? category,
+    String? description,
+    String? logoUrl,
+    String? supplierStatus,
+    String? ownerName,
+  }) async {
+    final suppId = _supplierProfile?.supplierId ?? _currentUser?.storeId;
+
+    if (_supplierProfile != null) {
+      _supplierProfile = _supplierProfile!.copyWith(
+        supplierName: storeName,
+        contactPhone: contactPhone ?? _supplierProfile!.contactPhone,
+        contactEmail: contactEmail ?? _supplierProfile!.contactEmail,
+        address: address ?? _supplierProfile!.address,
+        city: city ?? _supplierProfile!.city,
+        supplierLogoUrl: logoUrl ?? _supplierProfile!.supplierLogoUrl,
+        supplierStatus: supplierStatus ?? _supplierProfile!.supplierStatus,
+      );
+    }
+
+    if (_currentUser != null) {
+      _currentUser = _currentUser!.copyWith(
+        storeName: storeName,
+        fullName: ownerName ?? _currentUser!.fullName,
+        phone: contactPhone ?? _currentUser!.phone,
+        category: category ?? _currentUser!.category,
+        address: address ?? _currentUser!.address,
+        description: description ?? _currentUser!.description,
+        supplierProfile: _supplierProfile,
+      );
+      await _storage.saveSellerProfile(_currentUser!.toJson());
+    }
+
+    _hasSupplier = true;
+    notifyListeners();
+
+    final token = _tokens?.accessToken;
+    if (token != null &&
+        !token.startsWith('demo-') &&
+        !token.startsWith('social-') &&
+        suppId != null &&
+        suppId.isNotEmpty) {
+      try {
+        final updateData = <String, dynamic>{
+          'supplierName': storeName,
+          if (contactPhone != null && contactPhone.isNotEmpty) 'contactPhone': contactPhone,
+          if (contactEmail != null && contactEmail.isNotEmpty) 'contactEmail': contactEmail,
+          if (address != null && address.isNotEmpty) 'address': address,
+          if (city != null && city.isNotEmpty) 'city': city,
+          if (logoUrl != null && logoUrl.isNotEmpty) 'supplierLogoUrl': logoUrl,
+        };
+        final updatedSupplier = await _apiService.updateSupplier(
+          token: token,
+          supplierId: suppId,
+          body: updateData,
+        );
+        if (updatedSupplier != null) {
+          _supplierProfile = updatedSupplier;
+          if (_currentUser != null) {
+            _currentUser = _currentUser!.copyWith(supplierProfile: _supplierProfile);
+            await _storage.saveSellerProfile(_currentUser!.toJson());
+          }
+          notifyListeners();
+        }
+
+        if (supplierStatus != null) {
+          await _apiService.updateSupplierStatus(
+            token: token,
+            supplierId: suppId,
+            status: supplierStatus,
+          );
+        }
+        return true;
+      } catch (e) {
+        debugPrint('updateSupplierStoreDetails error: ');
+        return false;
+      }
+    }
+    return true;
+  }
+
   /// Update store profile (Backward-compatibility & Profile edits)
   Future<void> updateStoreProfile({
     required String storeName,
@@ -454,11 +647,11 @@ class SellerAuthService extends ChangeNotifier {
     _storage.saveSellerProfile(user.toJson());
   }
 
-  /// Proactively refresh the access token
+  /// Proactively refresh the access token using stored refresh token via /api/v1/auth/refresh
   Future<String?> refreshAccessToken() async {
     final currentTokens = _tokens;
     if (currentTokens == null || currentTokens.refreshToken.isEmpty) {
-      logout(callServer: false, sessionExpired: true);
+      await logout(callServer: false, sessionExpired: true);
       return null;
     }
 
@@ -480,16 +673,23 @@ class SellerAuthService extends ChangeNotifier {
         final newTokens = result.tokens!;
         _tokens = newTokens;
         await _storage.saveTokens(newTokens);
+        if (result.user != null) {
+          _currentUser = _mergeUser(_currentUser, result.user!);
+          await _storage.saveSellerProfile(_currentUser!.toJson());
+        }
         notifyListeners();
         completer.complete(newTokens.accessToken);
         return newTokens.accessToken;
       } else {
-        logout(callServer: false, sessionExpired: true);
+        // Refresh token failed (expired, invalid, revoked, or server error)
+        if (result.statusCode != 0) {
+          await logout(callServer: false, sessionExpired: true);
+        }
         completer.complete(null);
         return null;
       }
     } catch (_) {
-      logout(callServer: false, sessionExpired: true);
+      await logout(callServer: false, sessionExpired: true);
       completer.complete(null);
       return null;
     } finally {
@@ -497,9 +697,9 @@ class SellerAuthService extends ChangeNotifier {
     }
   }
 
-  /// Handle session expiration
+  /// Handle session expiration callback from ApiClient
   void handleSessionExpired() {
-    if (isLoggedIn) {
+    if (_tokens != null || _currentUser != null) {
       logout(callServer: false, sessionExpired: true);
     }
   }
@@ -507,7 +707,7 @@ class SellerAuthService extends ChangeNotifier {
   /// Logout and clear storage
   Future<void> logout({bool callServer = true, bool sessionExpired = false}) async {
     final token = _tokens?.accessToken;
-    final wasLoggedIn = isLoggedIn;
+    final hadSession = _tokens != null || _currentUser != null;
 
     _currentUser = null;
     _tokens = null;
@@ -517,22 +717,66 @@ class SellerAuthService extends ChangeNotifier {
 
     await _storage.clearAuth();
 
-    if (callServer && token != null && !token.startsWith('demo-')) {
+    if (callServer && token != null && !token.startsWith('demo-') && !token.startsWith('social-')) {
       _apiService.logout(token).catchError((_) => false);
     }
 
-    if (sessionExpired || wasLoggedIn) {
-      _onSessionExpired();
+    if (sessionExpired || hadSession) {
+      _onSessionExpired(showNotification: sessionExpired);
     }
   }
 
-  void _onSessionExpired() {
+  void _onSessionExpired({bool showNotification = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
         if (navigatorKey.currentState != null) {
           navigatorKey.currentState!.popUntil((route) => route.isFirst);
         }
       } catch (_) {}
+
+      if (showNotification) {
+        try {
+          final messenger = scaffoldMessengerKey.currentState;
+          if (messenger != null) {
+            messenger.removeCurrentSnackBar();
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'),
+                backgroundColor: Colors.redAccent,
+                duration: Duration(seconds: 3),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } catch (_) {}
+      }
     });
+  }
+
+  /// Merge existing user with updated server user, preserving non-null existing data
+  SellerUser _mergeUser(SellerUser? current, SellerUser updated) {
+    if (current == null) return updated;
+    return current.copyWith(
+      id: updated.id.isNotEmpty ? updated.id : current.id,
+      email: updated.email.isNotEmpty ? updated.email : current.email,
+      roles: updated.roles.isNotEmpty ? updated.roles : current.roles,
+      fullName: (updated.fullName != null && updated.fullName!.isNotEmpty)
+          ? updated.fullName
+          : current.fullName,
+      storeName: (updated.storeName != null && updated.storeName!.isNotEmpty)
+          ? updated.storeName
+          : current.storeName,
+      storeId: (updated.storeId != null && updated.storeId!.isNotEmpty)
+          ? updated.storeId
+          : current.storeId,
+      phone: (updated.phone != null && updated.phone!.isNotEmpty)
+          ? updated.phone
+          : current.phone,
+      role: updated.role ?? current.role,
+      category: updated.category ?? current.category,
+      address: updated.address ?? current.address,
+      description: updated.description ?? current.description,
+      supplierProfile: updated.supplierProfile ?? current.supplierProfile,
+    );
   }
 }

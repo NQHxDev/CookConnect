@@ -19,13 +19,10 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
   late String _storeName;
   late String _accountId;
   late String _role;
-  late DateTime _selectedDateOfBirth;
-  String _selectedGender = 'Nam';
 
   @override
   void initState() {
     super.initState();
-    _selectedDateOfBirth = DateTime(1995, 10, 20);
     _loadUserData();
     SellerAuthService.instance.addListener(_onAuthChanged);
   }
@@ -63,9 +60,6 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
   }
 
   /// Formats date as 'Ngày x, thg y, yyyy'
-  String _formatDate(DateTime dt) {
-    return 'Ngày ${dt.day}, thg ${dt.month}, ${dt.year}';
-  }
 
   /// Masks email so only the first and last character before '@' are shown,
   /// with the rest replaced by '*'.
@@ -95,91 +89,6 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
     final suffix = cleaned.substring(cleaned.length - 3);
     final stars = '*' * (cleaned.length - prefix.length - suffix.length);
     return '$prefix $stars $suffix';
-  }
-
-  Future<void> _selectDateOfBirth() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDateOfBirth,
-      firstDate: DateTime(1930),
-      lastDate: DateTime.now(),
-      helpText: 'Chọn ngày sinh của bạn',
-      cancelText: 'Huỷ',
-      confirmText: 'Xác nhận',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppColors.primary,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        _selectedDateOfBirth = picked;
-      });
-      _showSuccessSnackBar('Đã cập nhật ngày sinh');
-    }
-  }
-
-  void _selectGender() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 10),
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'Chọn giới tính',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              ...['Nam', 'Nữ', 'Khác'].map((gender) => ListTile(
-                    title: Text(gender, style: const TextStyle(fontSize: 14.5)),
-                    trailing: _selectedGender == gender
-                        ? const Icon(Icons.check, color: AppColors.primary)
-                        : null,
-                    onTap: () {
-                      setState(() => _selectedGender = gender);
-                      Navigator.pop(context);
-                      _showSuccessSnackBar('Đã cập nhật giới tính: $gender');
-                    },
-                  )),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   void _editFullName() {
@@ -334,16 +243,6 @@ class _AccountInformationScreenState extends State<AccountInformationScreen> {
                   title: 'Email',
                   value: _email,
                   onTap: () => _showComingSoonSnackBar('email'),
-                ),
-                _buildAccountInfoItem(
-                  title: 'Ngày sinh',
-                  value: _formatDate(_selectedDateOfBirth),
-                  onTap: _selectDateOfBirth,
-                ),
-                _buildAccountInfoItem(
-                  title: 'Giới tính',
-                  value: _selectedGender,
-                  onTap: _selectGender,
                 ),
               ],
             ),

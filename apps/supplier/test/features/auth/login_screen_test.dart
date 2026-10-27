@@ -49,7 +49,7 @@ void main() {
     expect(find.text('Tiếp tục với Apple'), findsOneWidget);
 
     // Verify quick demo and register footer
-    expect(find.text('Dùng thử tài khoản mẫu (Demo Seller)'), findsOneWidget);
+    expect(find.text('Dùng thử tài khoản mẫu (Demo Seller)'), findsNothing);
     expect(find.text('Đăng ký ngay'), findsOneWidget);
   });
 

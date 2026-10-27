@@ -1,3 +1,4 @@
+import 'package:cook_connect_seller/features/settings/presentation/pages/wallet/wallet_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cook_connect_seller/features/settings/presentation/pages/about/about_screen.dart';
@@ -96,6 +97,11 @@ class SettingsScreen extends StatelessWidget {
               _buildSectionHeader('Vận hành & Thanh toán'),
               _buildSectionContainer(
                 children: [
+                  _buildSettingsItem(
+                    icon: Iconsax.wallet_3,
+                    title: 'Ví & Doanh thu',
+                    onTap: () => _navigateTo(context, const WalletScreen()),
+                  ),
                   _buildSettingsItem(
                     icon: Iconsax.truck_fast,
                     title: 'Giao hàng',

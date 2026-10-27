@@ -45,6 +45,11 @@ class CookConnectSellerApp extends StatelessWidget {
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
+  static void navigateToTab(BuildContext context, int index) {
+    final state = context.findAncestorStateOfType<_MainNavigationScreenState>();
+    state?._onNavItemTapped(index);
+  }
+
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }

@@ -38,9 +38,14 @@ class ApiConfig {
   static String get refreshPath => '/api/$apiVersion/auth/refresh';
   static String get logoutPath => '/api/$apiVersion/auth/logout';
   static String get mePath => '/api/$apiVersion/auth/me';
+  static String get userMePath => '/api/$apiVersion/users/me';
 
   // Supplier Store Onboarding Endpoints (Phase 2: Store setup & details)
   static String get suppliersPath => '/api/$apiVersion/suppliers';
+  static String supplierDetailPath(String supplierId) =>
+      '/api/$apiVersion/suppliers/$supplierId';
+  static String supplierStatusPath(String supplierId) =>
+      '/api/$apiVersion/suppliers/$supplierId/status';
   static String get mySupplierPath => '/api/$apiVersion/suppliers/me';
   static String get storeProfilePath => mySupplierPath;
   static String get storeStatusPath => '/api/$apiVersion/suppliers/me/status';
@@ -87,6 +92,7 @@ class ApiConfig {
   static String get refreshUrl => '$baseUrl$refreshPath';
   static String get logoutUrl => '$baseUrl$logoutPath';
   static String get meUrl => '$baseUrl$mePath';
+  static String get userMeUrl => '$baseUrl$userMePath';
   static String get suppliersUrl => '$baseUrl$suppliersPath';
   static String get mySupplierUrl => '$baseUrl$mySupplierPath';
   static String get dashboardStatsUrl => '$baseUrl$dashboardStatsPath';

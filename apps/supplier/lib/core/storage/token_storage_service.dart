@@ -17,9 +17,80 @@ class AuthTokens {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  bool get isExpired {
-    final expiryTime = createdAt.add(Duration(seconds: expiresIn));
-    return DateTime.now().isAfter(expiryTime);
+  /// Extracts the 'sub' claim (which corresponds to accountId) from the access token JWT payload.
+  String? get sub {
+    final payload = getJwtPayload(accessToken);
+    return payload?['sub']?.toString();
+  }
+
+  /// Checks whether the access token is expired based on JWT payload or issuance duration.
+  bool isAccessTokenExpired({Duration buffer = const Duration(seconds: 10)}) {
+    if (accessToken.isEmpty) return true;
+    if (accessToken.startsWith('demo-') || accessToken.startsWith('social-')) {
+      return false;
+    }
+
+    // 1. Check JWT 'exp' timestamp
+    final jwtExp = getJwtExpiryDate(accessToken);
+    if (jwtExp != null) {
+      return DateTime.now().add(buffer).isAfter(jwtExp);
+    }
+
+    // 2. Check local duration
+    if (expiresIn > 0) {
+      final expiryTime = createdAt.add(Duration(seconds: expiresIn));
+      return DateTime.now().add(buffer).isAfter(expiryTime);
+    }
+
+    return false;
+  }
+
+  /// Checks whether the refresh token is expired (if JWT formatted).
+  bool isRefreshTokenExpired({Duration buffer = const Duration(seconds: 5)}) {
+    if (refreshToken.isEmpty) return true;
+    if (refreshToken.startsWith('demo-') || refreshToken.startsWith('social-')) {
+      return false;
+    }
+
+    final jwtExp = getJwtExpiryDate(refreshToken);
+    if (jwtExp != null) {
+      return DateTime.now().add(buffer).isAfter(jwtExp);
+    }
+    return false;
+  }
+
+  bool get isExpired => isAccessTokenExpired();
+
+  /// Decodes and extracts the JSON payload from a JWT token.
+  static Map<String, dynamic>? getJwtPayload(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      var payload = parts[1];
+      while (payload.length % 4 != 0) {
+        payload += '=';
+      }
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final map = jsonDecode(decoded);
+      if (map is Map<String, dynamic>) {
+        return map;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Extracts expiry DateTime from JWT payload if available.
+  static DateTime? getJwtExpiryDate(String token) {
+    final payload = getJwtPayload(token);
+    if (payload != null && payload.containsKey('exp')) {
+      final expNum = payload['exp'];
+      if (expNum is num) {
+        return DateTime.fromMillisecondsSinceEpoch(expNum.toInt() * 1000);
+      }
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() => {
@@ -35,7 +106,9 @@ class AuthTokens {
     refreshToken: json['refreshToken'] as String? ?? '',
     tokenType: json['tokenType'] as String? ?? 'Bearer',
     expiresIn: (json['expiresIn'] as num?)?.toInt() ?? 3600,
-    createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
+    createdAt: json['createdAt'] != null
+        ? DateTime.tryParse(json['createdAt'].toString())
+        : null,
   );
 }
 

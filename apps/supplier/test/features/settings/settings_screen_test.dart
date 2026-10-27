@@ -1,3 +1,4 @@
+import 'package:cook_connect_seller/features/settings/presentation/pages/wallet/wallet_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cook_connect_seller/features/settings/presentation/pages/settings_screen.dart';
@@ -18,7 +19,7 @@ import 'package:cook_connect_seller/features/settings/presentation/pages/timezon
 import 'package:cook_connect_seller/features/settings/presentation/pages/warehouse/warehouse_address_screen.dart';
 
 void main() {
-  testWidgets('SettingsScreen displays all 15 options and navigates to each blank screen',
+  testWidgets('SettingsScreen displays all 16 options and navigates to each blank screen',
       (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -32,6 +33,7 @@ void main() {
       'Thông tin cửa hàng': StoreInformationScreen,
       'Thông tin doanh nghiệp': BusinessInformationScreen,
       'Thông tin thuế': TaxInformationScreen,
+      'Ví & Doanh thu': WalletScreen,
       'Giao hàng': ShippingScreen,
       'Thanh toán': PaymentScreen,
       'Địa chỉ kho hàng': WarehouseAddressScreen,

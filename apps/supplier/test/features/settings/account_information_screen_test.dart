@@ -31,8 +31,8 @@ void main() {
     expect(find.text('Họ và tên'), findsOneWidget);
     expect(find.text('Số điện thoại'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Ngày sinh'), findsOneWidget);
-    expect(find.text('Giới tính'), findsOneWidget);
+    expect(find.text('Ngày sinh'), findsNothing);
+    expect(find.text('Giới tính'), findsNothing);
 
     // Verify Identity & Roles
     expect(find.text('Mã tài khoản'), findsOneWidget);
@@ -50,17 +50,6 @@ void main() {
     await tester.tap(find.text('Huỷ'));
     await tester.pumpAndSettle();
     expect(find.text('Đổi tên chủ tài khoản'), findsNothing);
-
-    // Test gender picker bottom sheet
-    await tester.tap(find.text('Giới tính'));
-    await tester.pumpAndSettle();
-    expect(find.text('Chọn giới tính'), findsOneWidget);
-    expect(find.text('Nữ'), findsOneWidget);
-
-    await tester.tap(find.text('Nữ'));
-    await tester.pumpAndSettle();
-    expect(find.text('Chọn giới tính'), findsNothing);
-    expect(find.text('Nữ'), findsOneWidget);
 
     // Test copying account ID
     await tester.tap(find.text('Mã tài khoản'));
