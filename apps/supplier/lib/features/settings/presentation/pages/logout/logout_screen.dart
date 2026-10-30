@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cook_connect_seller/core/theme/app_colors.dart';
 import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
+import 'package:cook_connect_seller/features/auth/presentation/pages/auth_gate.dart';
 
 class LogoutScreen extends StatefulWidget {
   const LogoutScreen({super.key});
@@ -14,10 +15,18 @@ class _LogoutScreenState extends State<LogoutScreen> {
   bool _isLoading = false;
 
   Future<void> _handleLogout() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
-    await SellerAuthService.instance.logout();
-    if (mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
+    try {
+      await SellerAuthService.instance.logout();
+    } catch (e) {
+      debugPrint('Logout error: $e');
+    }
+    if (mounted && SellerAuthService.navigatorKey.currentState == null) {
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthGate()),
+        (route) => false,
+      );
     }
   }
 

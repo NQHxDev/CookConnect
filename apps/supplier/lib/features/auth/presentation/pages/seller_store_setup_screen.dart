@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cook_connect_seller/core/theme/app_colors.dart';
 import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
-import 'package:cook_connect_seller/main.dart';
-import 'package:cook_connect_seller/features/auth/presentation/pages/welcome_auth_screen.dart';
+import 'package:cook_connect_seller/features/auth/presentation/pages/auth_gate.dart';
 
 class SellerStoreSetupScreen extends StatefulWidget {
   final String? contact;
@@ -134,9 +133,7 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => WelcomeAuthScreen(
-          onLoginSuccess: widget.onLoginSuccess,
-        ),
+        builder: (_) => const AuthGate(),
       ),
       (route) => false,
     );
@@ -591,31 +588,12 @@ class _SellerStoreSetupScreenState extends State<SellerStoreSetupScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Iconsax.tick_circle, color: Colors.white),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Chào mừng bạn đến với CookConnect Supplier! Gian hàng "${profile.supplierName}" đã được kích hoạt thành công.',
-                  style: const TextStyle(fontSize: 13.5),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green[700],
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
       if (widget.onLoginSuccess != null) {
         widget.onLoginSuccess!();
       }
 
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        MaterialPageRoute(builder: (_) => const AuthGate()),
         (route) => false,
       );
     } catch (e) {

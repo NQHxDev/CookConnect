@@ -58,9 +58,32 @@ class PostIngredientItem {
   }
 }
 
+class PostAuthor {
+  final String userId;
+  final String? displayName;
+  final String? avatarUrl;
+
+  const PostAuthor({required this.userId, this.displayName, this.avatarUrl});
+
+  factory PostAuthor.fromJson(Map<String, dynamic> json) {
+    return PostAuthor(
+      userId: json['userId']?.toString() ?? '',
+      displayName: json['displayName']?.toString(),
+      avatarUrl: json['avatarUrl']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'userId': userId,
+        if (displayName != null) 'displayName': displayName,
+        if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      };
+}
+
 class PostItem {
   final String postId;
   final String userId;
+  final PostAuthor? author;
   final String title;
   final String? caption;
   final String? mediaId;
@@ -86,10 +109,12 @@ class PostItem {
   bool isLiked;
   bool isSaved;
   int localLikeCount;
+  int localCommentCount;
 
   PostItem({
     required this.postId,
     required this.userId,
+    this.author,
     required this.title,
     this.caption,
     this.mediaId,
@@ -113,7 +138,9 @@ class PostItem {
     this.isLiked = false,
     this.isSaved = false,
     int? localLikeCount,
-  }) : localLikeCount = localLikeCount ?? likeCount;
+    int? localCommentCount,
+  }) : localLikeCount = localLikeCount ?? likeCount,
+       localCommentCount = localCommentCount ?? commentCount;
 
   factory PostItem.fromJson(Map<String, dynamic> json) {
     final rawIngredients = json['ingredients'] as List<dynamic>? ?? [];
@@ -124,6 +151,9 @@ class PostItem {
     return PostItem(
       postId: json['postId']?.toString() ?? '',
       userId: json['userId']?.toString() ?? '',
+      author: json['author'] is Map<String, dynamic>
+          ? PostAuthor.fromJson(json['author'] as Map<String, dynamic>)
+          : null,
       title: json['title']?.toString() ?? '',
       caption: json['caption']?.toString(),
       mediaId: json['mediaId']?.toString(),
@@ -154,6 +184,7 @@ class PostItem {
   PostItem copyWith({
     String? postId,
     String? userId,
+    PostAuthor? author,
     String? title,
     String? caption,
     String? mediaId,
@@ -181,6 +212,7 @@ class PostItem {
     return PostItem(
       postId: postId ?? this.postId,
       userId: userId ?? this.userId,
+      author: author ?? this.author,
       title: title ?? this.title,
       caption: caption ?? this.caption,
       mediaId: mediaId ?? this.mediaId,
@@ -211,6 +243,7 @@ class PostItem {
     return {
       'postId': postId,
       'userId': userId,
+      if (author != null) 'author': author!.toJson(),
       'title': title,
       if (caption != null) 'caption': caption,
       if (mediaId != null) 'mediaId': mediaId,
@@ -239,9 +272,12 @@ class PostItem {
       postId: 'sample-post-onboarding-1',
       userId: 'chef-cookconnect-official',
       title: 'Bánh Mì Chảo Thập Cẩm Ăn Sáng Siêu Ngon 🍳🥖',
-      caption: 'Bữa sáng nhanh gọn thơm ngon nóng hổi với pate, trứng ốp la và xúc xích xèo xèo chuẩn vị!',
-      videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=800',
+      caption:
+          'Bữa sáng nhanh gọn thơm ngon nóng hổi với pate, trứng ốp la và xúc xích xèo xèo chuẩn vị!',
+      videoUrl:
+          'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4',
+      thumbnailUrl:
+          'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=800',
       duration: 30,
       viewCount: 15400,
       likeCount: 4200,
@@ -293,7 +329,6 @@ class PostItem {
     );
   }
 }
-
 
 class PostFeedResponse {
   final List<PostItem> items;

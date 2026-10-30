@@ -6,6 +6,7 @@ export 'product_sku_item.dart';
 
 class SellerProductItem {
   final String id;
+  final String? supplierId;
   final String name;
   final String sku;
   final double price;
@@ -33,6 +34,7 @@ class SellerProductItem {
 
   SellerProductItem({
     required this.id,
+    this.supplierId,
     required this.name,
     required this.sku,
     required this.price,
@@ -90,6 +92,7 @@ class SellerProductItem {
 
   SellerProductItem copyWith({
     String? id,
+    String? supplierId,
     String? name,
     String? sku,
     double? price,
@@ -117,6 +120,7 @@ class SellerProductItem {
   }) {
     return SellerProductItem(
       id: id ?? this.id,
+      supplierId: supplierId ?? this.supplierId,
       name: name ?? this.name,
       sku: sku ?? this.sku,
       price: price ?? this.price,

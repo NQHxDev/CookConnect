@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:flutter_remix/flutter_remix.dart';
+import 'package:shared_widgets/shared_widgets.dart';
 import 'package:cook_connect_seller/core/theme/app_colors.dart';
+import 'package:cook_connect_seller/features/auth/data/models/seller_auth.dart';
 import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
+import 'package:cook_connect_seller/features/auth/presentation/pages/seller_kyb_verification_screen.dart';
+import 'package:cook_connect_seller/features/menu/data/models/seller_product_item.dart';
 import 'package:cook_connect_seller/features/menu/presentation/pages/add_product_screen.dart';
+import 'package:cook_connect_seller/features/dashboard/data/models/dashboard_stats.dart';
+import 'package:cook_connect_seller/features/dashboard/data/services/dashboard_api_service.dart';
+import 'package:cook_connect_seller/features/orders/presentation/pages/orders_screen.dart';
 import 'package:cook_connect_seller/features/settings/presentation/pages/shipping/shipping_screen.dart';
 import 'package:cook_connect_seller/features/settings/presentation/pages/warehouse/warehouse_address_screen.dart';
 import 'package:cook_connect_seller/features/store/presentation/pages/store_profile_screen.dart';
@@ -17,12 +24,14 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  bool _isOpen = true;
+  final DashboardApiService _dashboardApiService = DashboardApiService();
+  DashboardStats _dashboardStats = const DashboardStats(isLoading: true);
 
   @override
   void initState() {
     super.initState();
     SellerAuthService.instance.addListener(_onAuthChanged);
+    _loadDashboardData(showLoading: false);
   }
 
   @override
@@ -32,25 +41,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onAuthChanged() {
+    _loadDashboardData(showLoading: false);
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadDashboardData({bool showLoading = true}) async {
+    if (showLoading && mounted) {
+      setState(() {
+        _dashboardStats = _dashboardStats.copyWith(isLoading: true);
+      });
+    }
+
+    try {
+      final token = await SellerAuthService.instance.getValidAccessToken();
+      final profile = SellerAuthService.instance.supplierProfile;
+
+      final stats = await _dashboardApiService.getOperationalDashboardStats(
+        token: token ?? '',
+        supplierProfile: profile,
+      );
+
+      if (mounted) {
+        setState(() {
+          _dashboardStats = stats;
+        });
+      }
+    } catch (e) {
+      debugPrint('DashboardScreen _loadDashboardData error: $e');
+      if (mounted) {
+        setState(() {
+          _dashboardStats = _dashboardStats.copyWith(isLoading: false);
+        });
+      }
+    }
   }
 
   void _switchTab(int tabIndex) {
     MainNavigationScreen.navigateToTab(context, tabIndex);
   }
 
+  void _navigateToOrders({required String category, required String status}) {
+    OrdersScreen.onApplyFilter?.call(category, status);
+    _switchTab(2); // Go to Orders tab
+  }
+
   void _showNotificationSheet() {
+    final pendingCount = _dashboardStats.pendingConfirmationCount;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-        child: Column(
+      builder: (ctx) => Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -93,17 +141,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 child: const Icon(Iconsax.box_add, color: AppColors.primary, size: 20),
               ),
-              title: const Text(
-                '3 đơn hàng mới chờ duyệt',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              title: Text(
+                pendingCount > 0
+                    ? '$pendingCount đơn hàng mới chờ duyệt'
+                    : 'Không có đơn hàng mới chờ duyệt',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
-              subtitle: const Text(
-                'Khách hàng vừa đặt các đơn hàng nguyên liệu tươi',
-                style: TextStyle(fontSize: 12),
+              subtitle: Text(
+                pendingCount > 0
+                    ? 'Khách hàng vừa đặt các đơn hàng nguyên liệu tươi'
+                    : 'Hệ thống sẵn sàng nhận đơn mới',
+                style: const TextStyle(fontSize: 12),
               ),
               onTap: () {
                 Navigator.pop(ctx);
-                _switchTab(2); // Go to Orders
+                _navigateToOrders(
+                  category: 'needs_action',
+                  status: 'Cần vận chuyển trong vòng 24h',
+                );
               },
             ),
             const Divider(height: 1),
@@ -133,8 +188,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showStoreQrDialog(String storeName, String storeCode) {
     showDialog(
@@ -208,78 +264,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
         user?.storeName ??
         'Đại Siêu Thị CookConnect';
     final storeCode = supplier?.supplierCode ?? user?.storeId ?? 'SUPP-88992';
+    final kybBanner = _buildKybProgressCard(supplier);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.primary,
+        child: CustomPullToRefresh(
+          primaryColor: AppColors.primary,
           onRefresh: () async {
-            await Future.delayed(const Duration(milliseconds: 600));
+            await Future.wait([
+              SellerAuthService.instance.checkSupplierStatus(),
+              _loadDashboardData(showLoading: false),
+            ]);
             if (mounted) setState(() {});
           },
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.only(bottom: 28),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // Top Header Card: Store info, Notifications & QR
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _buildStoreHeader(storeName, storeCode, supplier),
+                  ),
+
+                  // KYB Onboarding Progress Banner (Nhỏ gọn, bấm vào mở trang chi tiết)
+                  if (kybBanner != null) ...[
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: kybBanner,
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // Action Center: Việc cần xử lý hôm nay (Crucial for operations)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildActionCenter(),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Operational Performance: Hiệu suất hôm nay (100% money-free)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildPerformanceMetrics(),
+                  ),
+
+                  const SizedBox(height: 16),
+
+
+                  // Quick Management Toolkit: Tiện ích quản lý
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildQuickToolsGrid(),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Seller University / Guides: Cẩm nang nhà bán hàng
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildSellerGuidesSection(),
+                  ),
+                ]),
+              ),
             ),
-            padding: const EdgeInsets.only(bottom: 28),
-            children: [
-              // Top Header Card: Store info, Open toggle, Notifications & QR
-              _buildStoreHeader(storeName, storeCode),
-
-              const SizedBox(height: 14),
-
-              // Action Center: Việc cần xử lý hôm nay (Crucial for operations)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildActionCenter(),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Operational Performance: Hiệu suất hôm nay (100% money-free)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildPerformanceMetrics(),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Inventory Warning Card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildInventoryAlertCard(),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Quick Management Toolkit: Tiện ích quản lý
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildQuickToolsGrid(),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Seller University / Guides: Cẩm nang nhà bán hàng
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildSellerGuidesSection(),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildStoreHeader(String storeName, String storeCode) {
+  Widget _buildStoreHeader(String storeName, String storeCode, SupplierProfile? supplier) {
+    final isVerified = supplier?.isVerified ?? false;
+    final status = supplier?.supplierStatus ?? 'PENDING';
+    final isApproved = isVerified && status == 'ACTIVE';
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: const BoxDecoration(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-        boxShadow: [
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
             blurRadius: 10,
@@ -287,194 +358,355 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              // Avatar
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary,
-                      AppColors.primary.withValues(alpha: 0.8),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.25),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
+          // Avatar / Store Icon
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const StoreProfileScreen()),
+              );
+            },
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: (supplier?.supplierLogoUrl != null &&
+                      supplier!.supplierLogoUrl!.isNotEmpty &&
+                      (supplier.supplierLogoUrl!.startsWith('http://') ||
+                          supplier.supplierLogoUrl!.startsWith('https://')))
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(9),
+                      child: Image.network(
+                        supplier.supplierLogoUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Iconsax.shop,
+                          color: Color(0xFF374151),
+                          size: 18,
+                        ),
+                      ),
+                    )
+                  : const Icon(
+                      Iconsax.shop,
+                      color: Color(0xFF374151),
+                      size: 18,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Store name and code
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        storeName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      isApproved
+                          ? Icons.verified_rounded
+                          : Icons.access_time_rounded,
+                      color: isApproved
+                          ? const Color(0xFF1E88E5)
+                          : const Color(0xFFE65100),
+                      size: 16,
                     ),
                   ],
                 ),
-                child: const Icon(Iconsax.shop, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 12),
-              // Store name and code
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 3),
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            storeName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.verified_rounded,
-                          color: Color(0xFF1E88E5),
-                          size: 16,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F3F5),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            storeCode,
-                            style: TextStyle(
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F3F5),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        storeCode,
+                        style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: Colors.grey[700],
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Đối tác CookConnect',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
                     ),
-                  ],
-                ),
-              ),
-              // Quick action buttons: QR & Notification
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.qr_code_rounded, color: Colors.black87, size: 22),
-                tooltip: 'Mã QR gian hàng',
-                onPressed: () => _showStoreQrDialog(storeName, storeCode),
-              ),
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Iconsax.notification, color: Colors.black87, size: 22),
-                    tooltip: 'Thông báo',
-                    onPressed: _showNotificationSheet,
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.error,
-                        shape: BoxShape.circle,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        isApproved ? 'Đối tác chính thức' : 'Đang thiết lập gian hàng',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isApproved ? Colors.grey[600] : const Color(0xFFE65100),
+                          fontWeight: isApproved ? FontWeight.normal : FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Status bar: Đang mở cửa / Tạm nghỉ nhận đơn
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: _isOpen ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _isOpen ? const Color(0xFFBBF7D0) : const Color(0xFFFED7AA),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _isOpen ? const Color(0xFF16A34A) : const Color(0xFFEA580C),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _isOpen
-                        ? 'Đang mở cửa • Sẵn sàng nhận đơn mới tự động'
-                        : 'Tạm ngưng nhận đơn • Gian hàng đang ở chế độ nghỉ',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: _isOpen ? const Color(0xFF15803D) : const Color(0xFFC2410C),
-                    ),
-                  ),
-                ),
-                Transform.scale(
-                  scale: 0.75,
-                  child: Switch(
-                    value: _isOpen,
-                    activeColor: const Color(0xFF16A34A),
-                    activeTrackColor: const Color(0xFFBBF7D0),
-                    inactiveThumbColor: Colors.grey,
-                    inactiveTrackColor: Colors.grey.shade200,
-                    onChanged: (val) {
-                      setState(() => _isOpen = val);
-                      ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              val
-                                  ? 'Gian hàng đã mở cửa nhận đơn!'
-                                  : 'Gian hàng đã tạm dừng nhận đơn mới.',
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        );
-                    },
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
+          // Quick action buttons: QR & Notification
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.qr_code_rounded, color: Colors.black87, size: 22),
+            tooltip: 'Mã QR gian hàng',
+            onPressed: () => _showStoreQrDialog(storeName, storeCode),
+          ),
+          Stack(
+            alignment: Alignment.topRight,
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Iconsax.notification, color: Colors.black87, size: 22),
+                tooltip: 'Thông báo',
+                onPressed: _showNotificationSheet,
+              ),
+              if (_dashboardStats.pendingConfirmationCount > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.error,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  /// Banner nhỏ gọn hiển thị trạng thái hồ sơ Supplier (KYB)
+  /// Nhấn vào để chuyển sang màn hình hoàn thiện/xem hồ sơ SellerKybVerificationScreen
+  Widget? _buildKybProgressCard(SupplierProfile? supplier) {
+    final status = supplier?.supplierStatus ?? 'PENDING';
+    final isVerified = supplier?.isVerified ?? false;
+    final rejectionReason = supplier?.rejectionReason;
+
+    // Trạng thái 1: Đã xác minh hoàn tất (ACTIVE & isVerified: true) -> Không cần hiển thị banner
+    if (isVerified && status == 'ACTIVE') {
+      return null;
+    }
+
+    // Trạng thái 2: Đang thẩm định hồ sơ (UNDER_REVIEW)
+    if (status == 'UNDER_REVIEW') {
+      return _buildCompactKybBanner(
+        icon: Icons.hourglass_top_rounded,
+        iconColor: const Color(0xFF111827),
+        iconBgColor: const Color(0xFFF3F4F6),
+        title: 'Hồ sơ đang được xét duyệt',
+        subtitle: 'CookConnect đang duyệt thông tin • Nhấn để xem',
+        bgColor: Colors.white,
+        borderColor: const Color(0xFFE5E7EB),
+        titleColor: const Color(0xFF111827),
+        subtitleColor: const Color(0xFF6B7280),
+        trailingBadge: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'Đang duyệt',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF374151),
+            ),
+          ),
+        ),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const SellerKybVerificationScreen(),
+            ),
+          );
+        },
+      );
+    }
+
+    // Trạng thái 3: Bị từ chối duyệt (REJECTED)
+    if (status == 'REJECTED') {
+      return _buildCompactKybBanner(
+        icon: Iconsax.close_circle,
+        iconColor: const Color(0xFFDC2626),
+        iconBgColor: const Color(0xFFFEE2E2),
+        title: 'Hồ sơ chưa được duyệt',
+        subtitle: (rejectionReason != null && rejectionReason.isNotEmpty)
+            ? 'Lý do: $rejectionReason • Nhấn để sửa'
+            : 'Vui lòng kiểm tra lại thông tin & gửi lại',
+        bgColor: Colors.white,
+        borderColor: const Color(0xFFFCA5A5),
+        titleColor: const Color(0xFF991B1B),
+        subtitleColor: const Color(0xFFB91C1C),
+        trailingBadge: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEE2E2),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'Cần sửa',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFDC2626),
+            ),
+          ),
+        ),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const SellerKybVerificationScreen(),
+            ),
+          );
+        },
+      );
+    }
+
+    // Trạng thái 4: PENDING - Chưa nộp / Chưa hoàn thành hồ sơ đối tác
+    return _buildCompactKybBanner(
+      icon: Iconsax.shield_security,
+      iconColor: const Color(0xFF111827),
+      iconBgColor: const Color(0xFFF3F4F6),
+      title: 'Hoàn thành hồ sơ đối tác',
+      subtitle: 'Xác minh thông tin để mở bán • Nhấn để thực hiện',
+      bgColor: Colors.white,
+      borderColor: const Color(0xFFE5E7EB),
+      titleColor: const Color(0xFF111827),
+      subtitleColor: const Color(0xFF6B7280),
+      trailingBadge: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text(
+          'Chưa nộp',
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF374151),
+          ),
+        ),
+      ),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const SellerKybVerificationScreen(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCompactKybBanner({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String subtitle,
+    required Color bgColor,
+    required Color borderColor,
+    required Color titleColor,
+    required Color subtitleColor,
+    required VoidCallback onTap,
+    Widget? trailingBadge,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: iconBgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: titleColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 1.5),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: subtitleColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (trailingBadge != null) ...[
+                trailingBadge,
+                const SizedBox(width: 4),
+              ],
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 11,
+                color: titleColor.withValues(alpha: 0.6),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -508,7 +740,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
               GestureDetector(
-                onTap: () => _switchTab(2), // Tab Đơn hàng
+                onTap: () => _navigateToOrders(
+                  category: 'shipping',
+                  status: 'Tất cả',
+                ),
                 child: const Row(
                   children: [
                     Text(
@@ -533,39 +768,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             children: [
               _buildActionItem(
-                count: '3',
+                count: _dashboardStats.pendingConfirmationCount.toString(),
                 label: 'Chờ xác nhận',
                 icon: Iconsax.timer_1,
                 color: const Color(0xFFFF9800),
                 bgColor: const Color(0xFFFFF3E0),
-                onTap: () => _switchTab(2),
+                onTap: () => _navigateToOrders(
+                  category: 'needs_action',
+                  status: 'Cần vận chuyển trong vòng 24h',
+                ),
               ),
               const SizedBox(width: 8),
               _buildActionItem(
-                count: '5',
+                count: _dashboardStats.packagingCount.toString(),
                 label: 'Chờ đóng gói',
                 icon: Iconsax.box_add,
                 color: const Color(0xFF2196F3),
                 bgColor: const Color(0xFFE3F2FD),
-                onTap: () => _switchTab(2),
+                onTap: () => _navigateToOrders(
+                  category: 'shipping',
+                  status: 'Đang chờ vận chuyển',
+                ),
               ),
               const SizedBox(width: 8),
               _buildActionItem(
-                count: '12',
+                count: _dashboardStats.shippingCount.toString(),
                 label: 'Đang giao',
                 icon: Iconsax.truck_fast,
                 color: const Color(0xFF9C27B0),
                 bgColor: const Color(0xFFF3E5F5),
-                onTap: () => _switchTab(2),
+                onTap: () => _navigateToOrders(
+                  category: 'shipping',
+                  status: 'Đang trung chuyển',
+                ),
               ),
               const SizedBox(width: 8),
               _buildActionItem(
-                count: '0',
+                count: _dashboardStats.returnsCount.toString(),
                 label: 'Khiếu nại/Trả',
                 icon: Iconsax.rotate_left,
                 color: const Color(0xFF607D8B),
                 bgColor: const Color(0xFFECEFF1),
-                onTap: () => _switchTab(2),
+                onTap: () => _navigateToOrders(
+                  category: 'shipping',
+                  status: 'Đã hủy',
+                ),
               ),
             ],
           ),
@@ -626,6 +873,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPerformanceMetrics() {
+    final supplier = SellerAuthService.instance.supplierProfile;
+    final isVerified = supplier?.isVerified ?? false;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -639,20 +889,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Iconsax.chart_2, size: 18, color: AppColors.primary),
-                  SizedBox(width: 6),
-                  Text(
-                    'Hiệu suất hôm nay',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(Iconsax.chart_2, size: 18, color: AppColors.primary),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Hiệu suất hôm nay',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -660,7 +916,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  'Vận hành xuất sắc',
+                  _dashboardStats.operationalStatusBadge,
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -675,16 +931,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               _buildMetricCard(
                 title: 'Đơn hoàn thành',
-                value: '18 đơn',
-                subtext: '+3 đơn so với hôm qua',
+                value: '${_dashboardStats.todayCompletedOrders} đơn',
+                subtext: _dashboardStats.completedComparisonText,
                 icon: Iconsax.bag_tick_2,
                 color: const Color(0xFF4CAF50),
               ),
               const SizedBox(width: 10),
               _buildMetricCard(
                 title: 'Thời gian chuẩn bị',
-                value: '12 phút',
-                subtext: 'Nhanh hơn chuẩn 8p',
+                value: _dashboardStats.prepTimeString,
+                subtext: _dashboardStats.prepTimeSubtext,
                 icon: Iconsax.clock,
                 color: const Color(0xFF00ACC1),
               ),
@@ -695,15 +951,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               _buildMetricCard(
                 title: 'Đánh giá gian hàng',
-                value: '4.9 ★',
-                subtext: '1.240 lượt đánh giá',
+                value: _dashboardStats.ratingString,
+                subtext: isVerified ? 'Gian hàng đã xác minh' : 'Đánh giá vận hành',
                 icon: Iconsax.star_1,
                 color: const Color(0xFFFFB300),
               ),
               const SizedBox(width: 10),
               _buildMetricCard(
                 title: 'Tỉ lệ phản hồi chat',
-                value: '98%',
+                value: '${_dashboardStats.chatResponseRate}%',
                 subtext: 'Phản hồi trong < 3 phút',
                 icon: Iconsax.messages_2,
                 color: const Color(0xFF7E57C2),
@@ -776,73 +1032,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildInventoryAlertCard() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFCD34D)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade100,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Iconsax.box_time, color: Color(0xFFB45309), size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Cảnh báo tồn kho trong ngày',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF92400E),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '2 mặt hàng tươi sống sắp chạm ngưỡng tối thiểu (Thịt bò phi lê, Nấm đông cô). Hãy kiểm tra để không bị hết hàng.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.brown[700],
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () => _switchTab(1), // Tab Sản phẩm
-                  child: const Row(
-                    children: [
-                      Text(
-                        'Kiểm tra kho & Cập nhật ngay',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFB45309),
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFFB45309)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildQuickToolsGrid() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -882,10 +1071,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 label: 'Thêm món',
                 color: AppColors.primary,
                 bgColor: const Color(0xFFFBE9E7),
-                onTap: () {
-                  Navigator.of(context).push(
+                onTap: () async {
+                  final newProduct = await Navigator.of(context).push<SellerProductItem>(
                     MaterialPageRoute(builder: (_) => const AddProductScreen()),
                   );
+                  if (newProduct != null && mounted) {
+                    _switchTab(1); // Chuyển sang tab Thực đơn để thấy ngay card sản phẩm vừa đăng
+                  }
                 },
               ),
               _buildToolItem(
@@ -1047,7 +1239,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: guides.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (ctx, index) {
             final guide = guides[index];
             final color = guide['color'] as Color;

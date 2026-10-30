@@ -20,6 +20,9 @@ dependencies:
   image_picker: ^1.2.3
   shared_widgets:
     path: ../../packages/shared_widgets
+  camera: ^0.12.1
+  google_mlkit_barcode_scanning: ^0.16.1
+  google_mlkit_text_recognition: ^0.17.1
 
 dev_dependencies:
   flutter_test:

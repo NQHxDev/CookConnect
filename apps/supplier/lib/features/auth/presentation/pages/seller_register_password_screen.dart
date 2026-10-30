@@ -44,7 +44,8 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
   bool get _hasSpecialChar =>
       RegExp(r'[^a-zA-Z0-9]').hasMatch(_passwordController.text);
 
-  bool get _isPasswordValid => _hasMinLength && _hasLettersAndNumbers;
+  bool get _isPasswordValid =>
+      _hasMinLength && _hasLettersAndNumbers && _hasSpecialChar;
   bool get _isConfirmValid =>
       _confirmPasswordController.text.isNotEmpty &&
       _confirmPasswordController.text == _passwordController.text;
@@ -245,6 +246,9 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
                           if (value.length < 6) {
                             return 'Mật khẩu phải có ít nhất 6 ký tự';
                           }
+                          if (!_hasSpecialChar) {
+                            return 'Mật khẩu phải chứa ít nhất một ký tự đặc biệt';
+                          }
                           return null;
                         },
                       ),
@@ -336,9 +340,8 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
                             ),
                             const SizedBox(height: 6),
                             _buildRuleRow(
-                              label: 'Ký tự đặc biệt (!@#\$%...) (khuyên dùng)',
+                              label: 'Ký tự đặc biệt (!@#\$%...)',
                               satisfied: _hasSpecialChar,
-                              isOptional: true,
                             ),
                             if (_confirmPasswordController.text.isNotEmpty) ...[
                               const SizedBox(height: 6),
@@ -423,16 +426,13 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
   Widget _buildRuleRow({
     required String label,
     required bool satisfied,
-    bool isOptional = false,
   }) {
     return Row(
       children: [
         Icon(
-          satisfied ? Iconsax.tick_circle : (isOptional ? Iconsax.info_circle : Iconsax.close_circle),
+          satisfied ? Iconsax.tick_circle : Iconsax.close_circle,
           size: 16,
-          color: satisfied
-              ? Colors.green[600]
-              : (isOptional ? Colors.grey[500] : Colors.grey[400]),
+          color: satisfied ? Colors.green[600] : Colors.grey[400],
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -440,9 +440,7 @@ class _SellerRegisterPasswordScreenState extends State<SellerRegisterPasswordScr
             label,
             style: TextStyle(
               fontSize: 12.5,
-              color: satisfied
-                  ? Colors.green[800]
-                  : (isOptional ? Colors.grey[600] : Colors.grey[600]),
+              color: satisfied ? Colors.green[800] : Colors.grey[600],
               fontWeight: satisfied ? FontWeight.w600 : FontWeight.normal,
             ),
           ),

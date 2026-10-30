@@ -7,7 +7,9 @@ import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 import 'package:cookconnect/features/chat/presentation/pages/chat_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:cookconnect/features/recipe/presentation/pages/user_video_feed_screen.dart';
 
 class OtherUserProfileScreen extends StatefulWidget {
   final String userId;
@@ -25,9 +27,13 @@ class OtherUserProfileScreen extends StatefulWidget {
     super.key,
     required this.userId,
     String? name,
+    String? initialName,
     String? username,
+    String? initialUsername,
     String? avatar,
+    String? initialAvatar,
     String? bio,
+    String? initialBio,
     String? gender,
     int? videoCount,
     int? followerCount,
@@ -36,10 +42,10 @@ class OtherUserProfileScreen extends StatefulWidget {
     this.avatarBgColor,
     this.apiService,
     this.onRefresh,
-  })  : initialName = name,
-        initialUsername = username,
-        initialAvatar = avatar,
-        initialBio = bio;
+  })  : initialName = initialName ?? name,
+        initialUsername = initialUsername ?? username,
+        initialAvatar = initialAvatar ?? avatar,
+        initialBio = initialBio ?? bio;
 
   @override
   State<OtherUserProfileScreen> createState() => _OtherUserProfileScreenState();
@@ -64,13 +70,35 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
   int _likeCount = 0;
   bool _isFollowing = false;
   bool _showAppBarTitle = false;
+  List<PostItem> _posts = [];
 
   // Pull-to-refresh overscroll state
   double _pullOffset = 0.0;
   bool _isRefreshing = false;
+  bool _postFrameRebuildScheduled = false;
   late AnimationController _refreshAnimController;
   AnimationController? _collapseAnimController;
   Timer? _minRefreshTimer;
+
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      fn();
+      if (!_postFrameRebuildScheduled) {
+        _postFrameRebuildScheduled = true;
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          _postFrameRebuildScheduled = false;
+          if (mounted) {
+            setState(() {});
+          }
+        });
+      }
+    } else {
+      setState(fn);
+    }
+  }
 
   @override
   void initState() {
@@ -115,6 +143,8 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
       _isLoading = true;
     });
 
+    _fetchUserPosts();
+
     final token = AuthService.instance.tokens?.accessToken;
 
     try {
@@ -150,6 +180,22 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
     }
   }
 
+  Future<void> _fetchUserPosts() async {
+    try {
+      final token = AuthService.instance.tokens?.accessToken;
+      final feedResponse = await _apiService.post.getFeed(
+        userId: widget.userId,
+        limit: 20,
+        token: token,
+      );
+      if (mounted) {
+        setState(() {
+          _posts = feedResponse.items;
+        });
+      }
+    } catch (_) {}
+  }
+
   void _applyUserData(AuthUser user) {
     _displayName = user.fullName.isNotEmpty
         ? user.fullName
@@ -179,23 +225,30 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
 
   void _onTabChanged() {
     if (!mounted) return;
-    setState(() {
-      if (_tabController.index != 0) {
+    if (_tabController.index != 0) {
+      _safeSetState(() {
         _showAppBarTitle = false;
-        if (_pullOffset > 0 || _isRefreshing) {
-          _resetPullOffset();
-        }
-        if (_scrollController.hasClients && _scrollController.offset > 0) {
-          _scrollController.jumpTo(0);
-        }
+        _isRefreshing = false;
+        _pullOffset = 0.0;
+      });
+      _collapseAnimController?.stop();
+      _refreshAnimController.stop();
+      if (_scrollController.hasClients && _scrollController.offset > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _scrollController.hasClients && _scrollController.offset > 0) {
+            _scrollController.jumpTo(0);
+          }
+        });
       }
-    });
+    } else {
+      _safeSetState(() {});
+    }
   }
 
   void _onScroll() {
     final show = _scrollController.hasClients && _scrollController.offset > 70;
     if (show != _showAppBarTitle) {
-      setState(() {
+      _safeSetState(() {
         _showAppBarTitle = show;
       });
     }
@@ -225,7 +278,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
       if (!_isRefreshing && notification.metrics.pixels <= 0) {
         if (notification.overscroll < 0) {
           final dy = notification.overscroll.abs();
-          setState(() {
+          _safeSetState(() {
             _pullOffset = (_pullOffset + dy * 0.45).clamp(0.0, 75.0);
           });
         }
@@ -234,7 +287,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
       if (!_isRefreshing) {
         if (_pullOffset > 0 && notification.dragDetails != null) {
           final dy = notification.dragDetails!.primaryDelta ?? 0;
-          setState(() {
+          _safeSetState(() {
             _pullOffset = (_pullOffset + dy * 0.55).clamp(0.0, 75.0);
           });
         }
@@ -264,7 +317,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
   void _triggerCustomRefresh() async {
     if (_isRefreshing) return;
     _collapseAnimController?.stop();
-    setState(() {
+    _safeSetState(() {
       _isRefreshing = true;
       _pullOffset = 60.0;
     });
@@ -280,7 +333,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
             .getUserDetails(accessToken: token, userId: widget.userId)
             .then((res) {
           if (mounted && res.isSuccess && res.user != null) {
-            setState(() {
+            _safeSetState(() {
               _applyUserData(res.user!);
             });
           }
@@ -302,7 +355,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
 
     if (mounted) {
       _refreshAnimController.stop();
-      setState(() {
+      _safeSetState(() {
         _isRefreshing = false;
       });
       _animateResetPullOffset();
@@ -312,12 +365,10 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
   void _resetPullOffset() {
     _collapseAnimController?.stop();
     _refreshAnimController.stop();
-    if (mounted) {
-      setState(() {
-        _isRefreshing = false;
-        _pullOffset = 0.0;
-      });
-    }
+    _safeSetState(() {
+      _isRefreshing = false;
+      _pullOffset = 0.0;
+    });
   }
 
   void _animateResetPullOffset() {
@@ -337,7 +388,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
 
     void listener() {
       if (!mounted) return;
-      setState(() {
+      _safeSetState(() {
         _pullOffset = (startOffset * (1.0 - curve.value)).clamp(0.0, 75.0);
       });
     }
@@ -347,7 +398,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
       _collapseAnimController?.removeListener(listener);
       if (mounted) {
         _refreshAnimController.stop();
-        setState(() {
+        _safeSetState(() {
           _pullOffset = 0.0;
           _isRefreshing = false;
         });
@@ -924,7 +975,135 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
     );
   }
 
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    }
+    return count.toString();
+  }
+
   Widget _buildRecipesGrid(Color primaryColor) {
+    if (_posts.isNotEmpty) {
+      return Builder(
+        builder: (context) {
+          return CustomScrollView(
+            key: const PageStorageKey<String>('other_user_tab_videos'),
+            physics: const ClampingScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(8),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
+                    childAspectRatio: 0.75,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final post = _posts[index];
+
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => UserVideoFeedScreen(
+                                posts: _posts,
+                                initialIndex: index,
+                                authorName: _displayName,
+                                authorUsername: _username,
+                                authorAvatar: _avatar,
+                              ),
+                            ),
+                          );
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (post.thumbnailUrl.isNotEmpty)
+                                  Image.network(
+                                    post.thumbnailUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Container(
+                                      color: const Color(0xFF1E293B),
+                                      child: const Center(
+                                        child: Icon(Iconsax.video_play, color: Color(0xFF64748B), size: 28),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    color: const Color(0xFF1E293B),
+                                    child: const Center(
+                                      child: Icon(Iconsax.video_play, color: Color(0xFF64748B), size: 28),
+                                    ),
+                                  ),
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  height: 38,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                        colors: [
+                                          Colors.black.withValues(alpha: 0.75),
+                                          Colors.transparent,
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 6,
+                                  left: 6,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Iconsax.play, size: 11, color: Colors.white),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        _formatCount(post.viewCount),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          shadows: [
+                                            Shadow(color: Colors.black54, offset: Offset(0, 1), blurRadius: 2),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    childCount: _posts.length,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
     final mockVideoViews = [
       '14.2K', '8.9K', '3.5K', '19.8K', '6.1K', '11.4K',
       '2.4K', '25.3K', '7.7K', '1.8K', '32.0K', '9.2K',

@@ -218,6 +218,15 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Returns a valid access token or refreshes it if expired
+  Future<String?> getValidAccessToken() async {
+    if (_tokens == null) return null;
+    if (_tokens!.isAccessTokenExpired()) {
+      return await refreshAccessToken();
+    }
+    return _tokens!.accessToken;
+  }
+
   /// Handle expired session callback from ApiService
   void handleSessionExpired() {
     if (isLoggedIn) {
@@ -276,6 +285,26 @@ class AuthService extends ChangeNotifier {
             ? updated.avatar
             : current.avatar;
 
+    final mergedAddress =
+        (updated.address != null && updated.address!.isNotEmpty)
+            ? updated.address
+            : current.address;
+
+    final mergedLocation =
+        (updated.location != null && updated.location!.isNotEmpty)
+            ? updated.location
+            : current.location;
+
+    final mergedWebsite =
+        (updated.website != null && updated.website!.isNotEmpty)
+            ? updated.website
+            : current.website;
+
+    final mergedCoverImage =
+        (updated.coverImage != null && updated.coverImage!.isNotEmpty)
+            ? updated.coverImage
+            : current.coverImage;
+
     return current.copyWith(
       id: mergedId,
       accountId: mergedAccountId,
@@ -288,6 +317,10 @@ class AuthService extends ChangeNotifier {
       dateOfBirth: mergedDob,
       bio: mergedBio,
       avatar: mergedAvatar,
+      address: mergedAddress,
+      location: mergedLocation,
+      website: mergedWebsite,
+      coverImage: mergedCoverImage,
       roles: updated.roles.isNotEmpty ? updated.roles : current.roles,
       status: updated.status ?? current.status,
       isEmailVerified: updated.isEmailVerified || current.isEmailVerified,
@@ -334,6 +367,7 @@ class AuthService extends ChangeNotifier {
       username: 'linhdan_cook',
       gender: 'FEMALE',
       dateOfBirth: '1998-08-15',
+      address: '123 Nguyễn Trãi, Thanh Xuân, Hà Nội',
       bio: 'Đam mê nấu ăn và làm bánh 🍰 | Chia sẻ công thức mỗi ngày 🍳',
       roles: ['USER'],
       status: 'ACTIVE',
@@ -400,6 +434,7 @@ class AuthService extends ChangeNotifier {
     String? coverImage,
     String? website,
     String? location,
+    String? address,
   }) {
     if (_currentUser == null) return;
     _currentUser = _currentUser!.copyWith(
@@ -412,6 +447,7 @@ class AuthService extends ChangeNotifier {
       coverImage: coverImage,
       website: website,
       location: location,
+      address: address,
     );
     notifyListeners();
 

@@ -9,7 +9,7 @@ class ApiConfig {
   /// Defaults to LAN server at 192.168.1.162:8080.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.1.162:8080',
+    defaultValue: 'http://192.168.1.96:8080',
   );
 
   /// API version string (e.g. 'v1').
@@ -39,9 +39,11 @@ class ApiConfig {
   static String get logoutPath => '/api/$apiVersion/auth/logout';
   static String get mePath => '/api/$apiVersion/auth/me';
   static String get userMePath => '/api/$apiVersion/users/me';
+  static String get userAddressPath => '/api/$apiVersion/users/me/address';
 
   // Supplier Store Onboarding Endpoints (Phase 2: Store setup & details)
   static String get suppliersPath => '/api/$apiVersion/suppliers';
+  static String get submitKybPath => '/api/$apiVersion/suppliers/me/kyb';
   static String supplierDetailPath(String supplierId) =>
       '/api/$apiVersion/suppliers/$supplierId';
   static String supplierStatusPath(String supplierId) =>
@@ -72,14 +74,22 @@ class ApiConfig {
 
   // Product Management (POST /api/v1/products - WHO categories & Raw ingredients)
   static String get productsPath => '/api/$apiVersion/products';
+  static String get productSearchPath => '/api/$apiVersion/products/search';
+  static String get productSuggestPath => '/api/$apiVersion/products/suggest';
   static String productDetailPath(String productId) =>
       '/api/$apiVersion/products/$productId';
   static String productStatusPath(String productId) =>
       '/api/$apiVersion/products/$productId/status';
   static String productVariantStockPath(String variantId) =>
       '/api/$apiVersion/products/variants/$variantId/stock';
+  static String productSubmitReviewPath(String productId) =>
+      '/api/$apiVersion/products/$productId/submit-review';
   // Media Endpoints
   static String get mediaUploadPath => '/api/$apiVersion/media/upload';
+  static String get mediaVideoMultipartInitiatePath =>
+      '/api/$apiVersion/media/videos/multipart-initiate';
+  static String get mediaVideoMultipartCompletePath =>
+      '/api/$apiVersion/media/videos/multipart-complete';
 
   // Helper getters for full endpoint URLs
   static String get apiBaseUrl => '$baseUrl/api/$apiVersion';
@@ -93,7 +103,9 @@ class ApiConfig {
   static String get logoutUrl => '$baseUrl$logoutPath';
   static String get meUrl => '$baseUrl$mePath';
   static String get userMeUrl => '$baseUrl$userMePath';
+  static String get userAddressUrl => '$baseUrl$userAddressPath';
   static String get suppliersUrl => '$baseUrl$suppliersPath';
+  static String get submitKybUrl => '$baseUrl$submitKybPath';
   static String get mySupplierUrl => '$baseUrl$mySupplierPath';
   static String get dashboardStatsUrl => '$baseUrl$dashboardStatsPath';
   static String get ordersUrl => '$baseUrl$ordersPath';
@@ -103,5 +115,13 @@ class ApiConfig {
   static String get storeProfileUrl => '$baseUrl$storeProfilePath';
   static String get storeStatusUrl => '$baseUrl$storeStatusPath';
   static String get productsUrl => '$baseUrl$productsPath';
+  static String get productSearchUrl => '$baseUrl$productSearchPath';
+  static String get productSuggestUrl => '$baseUrl$productSuggestPath';
+  static String productSubmitReviewUrl(String productId) =>
+      '$baseUrl${productSubmitReviewPath(productId)}';
   static String get mediaUploadUrl => '$baseUrl$mediaUploadPath';
+  static String get mediaVideoMultipartInitiateUrl =>
+      '$baseUrl$mediaVideoMultipartInitiatePath';
+  static String get mediaVideoMultipartCompleteUrl =>
+      '$baseUrl$mediaVideoMultipartCompletePath';
 }

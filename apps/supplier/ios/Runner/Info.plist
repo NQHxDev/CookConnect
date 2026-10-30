@@ -63,5 +63,9 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>CookConnect Seller cần quyền truy cập máy ảnh để chụp và quét thẻ Căn cước công dân xác minh gian hàng.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CookConnect Seller cần quyền truy cập thư viện ảnh để tải lên ảnh CCCD xác minh gian hàng.</string>
 </dict>
 </plist>

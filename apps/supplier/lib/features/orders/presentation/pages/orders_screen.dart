@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cook_connect_seller/core/theme/app_colors.dart';
+import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
 import 'package:cook_connect_seller/features/orders/data/models/seller_order.dart';
+import 'package:cook_connect_seller/features/orders/data/services/orders_api_service.dart';
 import 'package:cook_connect_seller/features/orders/presentation/widgets/order_card.dart';
 import 'package:cook_connect_seller/features/orders/presentation/widgets/order_filter_bottom_sheet.dart';
 import 'package:cook_connect_seller/features/orders/presentation/widgets/shipping_status_bottom_sheet.dart';
@@ -10,6 +12,9 @@ import 'package:shared_widgets/shared_widgets.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
+
+  /// Static hook to switch tab & sub-filter from other screens (like DashboardScreen)
+  static void Function(String category, String status)? onApplyFilter;
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -35,15 +40,91 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   // Danh sách đơn hàng
   late List<SellerOrder> _orders;
+  final OrdersApiService _ordersApiService = OrdersApiService();
+  bool _isLoading = false;
+  bool _hasLoadedFromApi = false;
+  int _serverShippingCount = 0;
+  int _serverNeedsActionCount = 0;
 
   @override
   void initState() {
     super.initState();
+    OrdersScreen.onApplyFilter = _applyExternalFilter;
     _orders = _getInitialMockOrders();
+    _loadOrders(showLoading: false);
+  }
+
+  void _applyExternalFilter(String category, String status) {
+    if (mounted) {
+      setState(() {
+        _activeMainCategory = category;
+        if (category == 'shipping') {
+          _selectedShippingStatus = status;
+        } else {
+          _selectedNeedsActionStatus = status;
+        }
+      });
+    }
+  }
+
+  Future<void> _loadOrders({bool showLoading = true}) async {
+    if (!SellerAuthService.instance.isLoggedIn) {
+      if (mounted && showLoading) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    try {
+      final token = await SellerAuthService.instance.getValidAccessToken();
+      if (token == null || token.isEmpty) {
+        if (mounted && showLoading) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final result = await _ordersApiService.getSupplierOrders(
+        token: token,
+      );
+
+      if (mounted) {
+        setState(() {
+          _orders = result.orders;
+          _serverShippingCount = result.shippingCount;
+          _serverNeedsActionCount = result.needsActionCount;
+          _hasLoadedFromApi = true;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('OrdersScreen _loadOrders error: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (!_hasLoadedFromApi && _orders.isEmpty) {
+            _orders = _getInitialMockOrders();
+          }
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
+    if (OrdersScreen.onApplyFilter == _applyExternalFilter) {
+      OrdersScreen.onApplyFilter = null;
+    }
     _searchController.dispose();
     super.dispose();
   }
@@ -181,25 +262,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
               order.status == 'shipping_pending' ||
               order.status == 'ready' ||
               order.status == 'completed' ||
-              order.status == 'cancelled';
+              order.status == 'cancelled' ||
+              order.rawStatus == 'CONFIRMED' ||
+              order.rawStatus == 'PROCESSING' ||
+              order.rawStatus == 'SHIPPING' ||
+              order.rawStatus == 'DELIVERED' ||
+              order.rawStatus == 'COMPLETED';
           if (!isShippingRelated) return false;
         } else {
           // Lọc theo mục con cụ thể
           final match = order.status == _selectedShippingStatus ||
               (_selectedShippingStatus == 'Đang chờ vận chuyển' &&
-                  (order.status == 'shipping_pending' || order.status == 'ready'));
+                  (order.status == 'shipping_pending' ||
+                      order.status == 'ready' ||
+                      order.rawStatus == 'CONFIRMED' ||
+                      order.rawStatus == 'PROCESSING'));
           if (!match) return false;
         }
       } else if (_activeMainCategory == 'needs_action') {
         if (_selectedNeedsActionStatus == 'Tất cả đơn hàng cần xử lý') {
           final isNeedsActionRelated = _needsActionStatuses.contains(order.status) ||
               order.status == 'pending' ||
-              order.status == 'needs_action';
+              order.status == 'needs_action' ||
+              order.rawStatus == 'PENDING';
           if (!isNeedsActionRelated) return false;
         } else {
           final match = order.status == _selectedNeedsActionStatus ||
               (_selectedNeedsActionStatus == 'Cần vận chuyển trong vòng 24h' &&
-                  order.status == 'pending');
+                  (order.status == 'pending' || order.rawStatus == 'PENDING'));
           if (!match) return false;
         }
       }
@@ -208,10 +298,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final matchId = order.id.toLowerCase().contains(query);
+        final matchOrderNumber = order.orderNumber.toLowerCase().contains(query);
         final matchName = order.customerName.toLowerCase().contains(query);
         final matchPhone = order.customerPhone.contains(query);
         final matchItem = order.items.any((it) => it.title.toLowerCase().contains(query));
-        if (!matchId && !matchName && !matchPhone && !matchItem) return false;
+        if (!matchId && !matchOrderNumber && !matchName && !matchPhone && !matchItem) return false;
       }
 
       return true;
@@ -220,6 +311,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   // Số lượng đơn cho Chờ vận chuyển
   int get _shippingCount {
+    if (_hasLoadedFromApi) {
+      final calculated = _orders.where((o) {
+        return _shippingStatuses.contains(o.status) ||
+            o.status == 'shipping_pending' ||
+            o.status == 'ready' ||
+            o.rawStatus == 'CONFIRMED' ||
+            o.rawStatus == 'PROCESSING' ||
+            o.rawStatus == 'SHIPPING';
+      }).length;
+      return calculated > 0 ? calculated : _serverShippingCount;
+    }
     return _orders.where((o) {
       return _shippingStatuses.contains(o.status) ||
           o.status == 'shipping_pending' ||
@@ -229,6 +331,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   // Số lượng đơn cho Cần xử lý
   int get _needsActionCount {
+    if (_hasLoadedFromApi) {
+      final calculated = _orders.where((o) {
+        return _needsActionStatuses.contains(o.status) ||
+            o.status == 'pending' ||
+            o.status == 'needs_action' ||
+            o.rawStatus == 'PENDING';
+      }).length;
+      return calculated > 0 ? calculated : _serverNeedsActionCount;
+    }
     return _orders.where((o) {
       return _needsActionStatuses.contains(o.status) ||
           o.status == 'pending' ||
@@ -283,26 +394,32 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
-  void _confirmOrder(SellerOrder order) {
-    setState(() {
-      final index = _orders.indexWhere((o) => o.id == order.id);
-      if (index != -1) {
-        _orders[index] = SellerOrder(
-          id: order.id,
-          customerName: order.customerName,
-          customerPhone: order.customerPhone,
-          deliveryAddress: order.deliveryAddress,
-          totalAmount: order.totalAmount,
-          status: 'Đang chờ vận chuyển',
-          createdAt: order.createdAt,
-          items: order.items,
-        );
+  Future<void> _confirmOrder(SellerOrder order) async {
+    final token = await SellerAuthService.instance.getValidAccessToken();
+    if (token != null && token.isNotEmpty && !order.id.startsWith('ORD-98')) {
+      final success = await _ordersApiService.updateOrderStatus(
+        token: token,
+        orderId: order.id,
+        status: 'CONFIRMED',
+      );
+      if (success) {
+        await _loadOrders(showLoading: false);
       }
-    });
+    } else {
+      setState(() {
+        final index = _orders.indexWhere((o) => o.id == order.id);
+        if (index != -1) {
+          _orders[index] = order.copyWith(status: 'Đang chờ vận chuyển');
+        }
+      });
+    }
 
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đơn hàng #${order.id} đã chuyển sang "Đang chờ vận chuyển"'),
+        content: Text(
+          'Đơn hàng #${order.orderNumber.isNotEmpty ? order.orderNumber : order.id} đã chuyển sang "Đang chờ vận chuyển"',
+        ),
         backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -310,26 +427,32 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
-  void _handoverToShipper(SellerOrder order) {
-    setState(() {
-      final index = _orders.indexWhere((o) => o.id == order.id);
-      if (index != -1) {
-        _orders[index] = SellerOrder(
-          id: order.id,
-          customerName: order.customerName,
-          customerPhone: order.customerPhone,
-          deliveryAddress: order.deliveryAddress,
-          totalAmount: order.totalAmount,
-          status: 'Đã hoàn thành',
-          createdAt: order.createdAt,
-          items: order.items,
-        );
+  Future<void> _handoverToShipper(SellerOrder order) async {
+    final token = await SellerAuthService.instance.getValidAccessToken();
+    if (token != null && token.isNotEmpty && !order.id.startsWith('ORD-98')) {
+      final success = await _ordersApiService.updateOrderStatus(
+        token: token,
+        orderId: order.id,
+        status: 'SHIPPING',
+      );
+      if (success) {
+        await _loadOrders(showLoading: false);
       }
-    });
+    } else {
+      setState(() {
+        final index = _orders.indexWhere((o) => o.id == order.id);
+        if (index != -1) {
+          _orders[index] = order.copyWith(status: 'Đã hoàn thành');
+        }
+      });
+    }
 
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đã giao shipper đơn #${order.id}!'),
+        content: Text(
+          'Đơn hàng #${order.orderNumber.isNotEmpty ? order.orderNumber : order.id} đã bàn giao cho shipper',
+        ),
         backgroundColor: const Color(0xFF0284C7),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -387,12 +510,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Iconsax.refresh, size: 20),
-            onPressed: () {
-              setState(() {
-                _orders = _getInitialMockOrders();
-              });
-            },
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Iconsax.refresh, size: 20),
+            onPressed: _isLoading ? null : () => _loadOrders(showLoading: true),
           ),
         ],
       ),
@@ -404,6 +529,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
           // ============================================================
           _buildCompactCategoryBar(),
 
+          if (_isLoading)
+            const LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+
           // Thanh thông báo khi có bộ lọc hoạt động
           if (_filterState.hasActiveFilter) _buildActiveFilterBanner(),
 
@@ -411,8 +543,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           Expanded(
             child: CustomPullToRefresh(
               onRefresh: () async {
-                await Future.delayed(const Duration(milliseconds: 500));
-                if (mounted) setState(() {});
+                await _loadOrders(showLoading: false);
               },
               primaryColor: AppColors.primary,
               slivers: [
@@ -767,7 +898,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 child: Row(
                   children: [
                     Text(
-                      'Chi tiết đơn #${order.id}',
+                      'Chi tiết đơn #${order.orderNumber.isNotEmpty ? order.orderNumber : order.id}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -789,9 +920,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   children: [
                     _buildInfoRow('Khách hàng:', order.customerName),
                     const SizedBox(height: 6),
-                    _buildInfoRow('Điện thoại:', order.customerPhone),
+                    _buildInfoRow('Điện thoại:', order.customerPhone.isNotEmpty ? order.customerPhone : 'Chưa cập nhật'),
                     const SizedBox(height: 6),
-                    _buildInfoRow('Địa chỉ:', order.deliveryAddress),
+                    _buildInfoRow('Địa chỉ:', order.deliveryAddress.isNotEmpty ? order.deliveryAddress : 'Nhận tại cửa hàng'),
+                    const SizedBox(height: 6),
+                    _buildInfoRow('Thanh toán:', '${order.paymentMethod} (${order.paymentStatus})'),
+                    if (order.note != null && order.note!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      _buildInfoRow('Ghi chú:', order.note!),
+                    ],
                     const SizedBox(height: 12),
                     const Text('Món đã đặt', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
@@ -806,6 +943,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             ],
                           ),
                         )),
+                    if (order.shippingFee > 0) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Phí vận chuyển:', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                          Text('${order.shippingFee.toInt()} đ',
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                        ],
+                      ),
+                    ],
                     const Divider(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,

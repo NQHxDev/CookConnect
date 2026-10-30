@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:cook_connect_seller/core/config/api_config.dart';
 import 'package:cook_connect_seller/core/network/api_client.dart';
 import 'package:cook_connect_seller/core/network/api_exception.dart';
@@ -233,6 +236,89 @@ class AuthApiService {
     return MySupplierResult.fromJson(response);
   }
 
+  /// Upload image to Media Service via `POST /api/v1/media/upload`
+  Future<String> uploadMediaImage({
+    required String token,
+    required String imagePath,
+    String folder = 'cookconnect/kyb',
+  }) async {
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+
+    String cleanPath = imagePath;
+    if (cleanPath.startsWith('file://')) {
+      cleanPath = cleanPath.substring(7);
+    }
+
+    final file = File(cleanPath);
+    if (!await file.exists()) {
+      return imagePath;
+    }
+
+    final bytes = await file.readAsBytes();
+    final ext = imagePath.split('.').last.toLowerCase();
+    String mimeType = 'image/jpeg';
+    if (ext == 'png') {
+      mimeType = 'image/png';
+    } else if (ext == 'webp') {
+      mimeType = 'image/webp';
+    } else if (ext == 'gif') {
+      mimeType = 'image/gif';
+    }
+
+    final base64String = 'data:$mimeType;base64,${base64Encode(bytes)}';
+    final fileName = imagePath.split('/').last;
+
+    final body = {
+      'fileBase64': base64String,
+      'fileName': fileName,
+      'mimeType': mimeType,
+      'type': 'IMAGE',
+      'folder': folder,
+    };
+
+    final response = await _client.post(
+      ApiConfig.mediaUploadPath,
+      token: token,
+      body: body,
+    );
+
+    final url = response['data']?['url']?.toString() ??
+        response['data']?['secure_url']?.toString() ??
+        response['url']?.toString();
+
+    if (url != null && url.isNotEmpty) {
+      return url;
+    }
+
+    throw ApiException(statusCode: 500, message: 'Tải ảnh xác minh lên hệ thống thất bại');
+  }
+
+  /// Submit KYB legal and banking documents (Step 2/3)
+  Future<SupplierProfile?> submitKyb({
+    required String token,
+    required Map<String, dynamic> kybData,
+  }) async {
+    try {
+      final response = await _client.post(
+        ApiConfig.submitKybPath,
+        token: token,
+        body: kybData,
+      );
+      final data = response['data'] is Map<String, dynamic>
+          ? response['data'] as Map<String, dynamic>
+          : response;
+      return SupplierProfile.fromJson(data);
+    } on ApiException catch (e) {
+      debugPrint('[AuthApiService] submitKyb ApiException: ${e.statusCode} ${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('[AuthApiService] submitKyb error: $e');
+      rethrow;
+    }
+  }
+
   /// Update supplier store details via PATCH /api/v1/suppliers/{supplierId}
   Future<SupplierProfile?> updateSupplier({
     required String token,
@@ -297,6 +383,7 @@ class AuthApiService {
         headers: {
           'x-refresh-token': refreshToken,
           'X-Refresh-Token': refreshToken,
+          'X-Client-Type': 'mobile',
         },
         body: {'refreshToken': refreshToken},
       );

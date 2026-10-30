@@ -145,7 +145,7 @@ class OrderCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '#${order.id}',
+                          '#${order.orderNumber.isNotEmpty ? order.orderNumber : order.id}',
                           style: const TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.bold,

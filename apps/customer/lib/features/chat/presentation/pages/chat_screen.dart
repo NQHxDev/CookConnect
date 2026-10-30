@@ -173,6 +173,9 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
 
+    // Listen to auth state changes to rebuild UI when login/logout happens
+    AuthService.instance.addListener(_onAuthChanged);
+
     _loadInitialSuggestions();
   }
 
@@ -180,7 +183,19 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    // Remove auth listener to prevent memory leaks
+    AuthService.instance.removeListener(_onAuthChanged);
+
     super.dispose();
+  }
+
+  /// Callback when auth state changes (login/logout)
+  void _onAuthChanged() {
+    if (mounted) {
+      setState(() {
+        // Rebuild entire widget tree with new auth state
+      });
+    }
   }
 
   void _onScroll() {
@@ -463,7 +478,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final isLoggedIn = AuthService.instance.isLoggedIn;
+    // Get fresh auth state on every build
 
     return ValueListenableBuilder<String>(
       valueListenable: ApiI18n.languageNotifier,
@@ -476,7 +491,7 @@ class _ChatScreenState extends State<ChatScreen> {
             surfaceTintColor: Colors.transparent,
             scrolledUnderElevation: 0,
             elevation: 0,
-            leading: isLoggedIn ? IconButton(
+            leading: AuthService.instance.isLoggedIn ? IconButton(
               icon: const Icon(Icons.group_add_outlined),
               onPressed: () {},
             ) : null,
@@ -487,14 +502,14 @@ class _ChatScreenState extends State<ChatScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            actions: isLoggedIn ? [
+            actions: AuthService.instance.isLoggedIn ? [
               IconButton(
                 icon: const Icon(Iconsax.search_normal_1, size: 20),
                 onPressed: () {},
               ),
             ] : null,
           ),
-          body: !isLoggedIn
+          body: !AuthService.instance.isLoggedIn
               ? _buildLoginRequiredView(context, primaryColor)
               : CustomScrollView(
             controller: _scrollController,

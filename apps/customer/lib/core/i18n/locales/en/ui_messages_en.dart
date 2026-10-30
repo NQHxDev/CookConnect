@@ -5,6 +5,7 @@ final Map<String, String> uiMessagesEn = {
   // Bottom Navigation Bar
   UiI18nKeys.navHome: 'Home',
   UiI18nKeys.navLibrary: 'Library',
+  UiI18nKeys.navMarket: 'Market',
   UiI18nKeys.navInbox: 'Inbox',
   UiI18nKeys.navProfile: 'Profile',
 

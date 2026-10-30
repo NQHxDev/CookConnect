@@ -1,20 +1,24 @@
+import 'package:cookconnect/features/auth/presentation/widgets/auth_bottom_sheet.dart';
 import 'package:cookconnect/core/constants/api_codes/ui_i18n_keys.dart';
 import 'package:cookconnect/core/i18n/api_i18n.dart';
 import 'dart:async';
 import 'package:shared_widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:flutter_remix/flutter_remix.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 import 'package:cookconnect/features/settings/presentation/pages/settings_screen.dart';
 import 'package:cookconnect/features/activity/presentation/pages/activity_screen.dart';
+import 'package:cookconnect/features/order/presentation/pages/my_orders_screen.dart';
 import 'package:cookconnect/features/profile/presentation/pages/find_friends_screen.dart';
 import 'package:cookconnect/features/auth/presentation/pages/login_screen.dart';
 import 'package:cookconnect/features/auth/presentation/pages/register_email_screen.dart';
 import 'package:cookconnect/features/profile/presentation/pages/edit/edit_profile_screen.dart';
 import 'package:cookconnect/features/profile/presentation/pages/edit/edit_bio_screen.dart';
-import 'package:cookconnect/core/widgets/google_logo.dart';
+import 'package:cookconnect/features/recipe/data/models/post_item.dart';
+import 'package:cookconnect/features/recipe/data/services/post_api_service.dart';
+import 'package:cookconnect/features/recipe/presentation/pages/user_video_feed_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isActive;
@@ -33,14 +37,39 @@ class ProfileScreenState extends State<ProfileScreen>
   AnimationController? _collapseAnimController;
   Timer? _minRefreshTimer;
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey<ProfileVideosTabState> _videosTabKey =
+      GlobalKey<ProfileVideosTabState>();
+  int? _localVideoCount;
   bool _showAppBarTitle = false;
   double _pullOffset = 0.0;
   bool _isRefreshing = false;
+  bool _postFrameRebuildScheduled = false;
+
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      fn();
+      if (!_postFrameRebuildScheduled) {
+        _postFrameRebuildScheduled = true;
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          _postFrameRebuildScheduled = false;
+          if (mounted) {
+            setState(() {});
+          }
+        });
+      }
+    } else {
+      setState(fn);
+    }
+  }
 
   double get pullOffset => _pullOffset;
   bool get isRefreshing => _isRefreshing;
   AnimationController get refreshAnimControllerDebug => _refreshAnimController;
-  AnimationController? get collapseAnimControllerDebug => _collapseAnimController;
+  AnimationController? get collapseAnimControllerDebug =>
+      _collapseAnimController;
 
   @override
   void initState() {
@@ -73,17 +102,26 @@ class ProfileScreenState extends State<ProfileScreen>
 
   void _onTabChanged() {
     if (!mounted) return;
-    setState(() {
-      if (_tabController.index != 0) {
+    if (_tabController.index != 0) {
+      _safeSetState(() {
         _showAppBarTitle = false;
-        if (_pullOffset > 0 || _isRefreshing) {
-          _resetPullOffset();
-        }
-        if (_scrollController.hasClients && _scrollController.offset > 0) {
-          _scrollController.jumpTo(0);
-        }
+        _isRefreshing = false;
+        _pullOffset = 0.0;
+      });
+      _collapseAnimController?.stop();
+      _refreshAnimController.stop();
+      if (_scrollController.hasClients && _scrollController.offset > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              _scrollController.hasClients &&
+              _scrollController.offset > 0) {
+            _scrollController.jumpTo(0);
+          }
+        });
       }
-    });
+    } else {
+      _safeSetState(() {});
+    }
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
@@ -111,7 +149,7 @@ class ProfileScreenState extends State<ProfileScreen>
       if (!_isRefreshing && notification.metrics.pixels <= 0) {
         if (notification.overscroll < 0) {
           final dy = notification.overscroll.abs();
-          setState(() {
+          _safeSetState(() {
             _pullOffset = (_pullOffset + dy * 0.45).clamp(0.0, 75.0);
           });
         }
@@ -120,7 +158,7 @@ class ProfileScreenState extends State<ProfileScreen>
       if (!_isRefreshing) {
         if (_pullOffset > 0 && notification.dragDetails != null) {
           final dy = notification.dragDetails!.primaryDelta ?? 0;
-          setState(() {
+          _safeSetState(() {
             _pullOffset = (_pullOffset + dy * 0.55).clamp(0.0, 75.0);
           });
         }
@@ -129,7 +167,8 @@ class ProfileScreenState extends State<ProfileScreen>
       if (!_isRefreshing && notification.direction == ScrollDirection.idle) {
         if (_pullOffset >= 48.0) {
           _triggerCustomRefresh();
-        } else if (_pullOffset > 0 && !(_collapseAnimController?.isAnimating ?? false)) {
+        } else if (_pullOffset > 0 &&
+            !(_collapseAnimController?.isAnimating ?? false)) {
           _animateResetPullOffset();
         }
       }
@@ -137,7 +176,8 @@ class ProfileScreenState extends State<ProfileScreen>
       if (!_isRefreshing) {
         if (_pullOffset >= 48.0) {
           _triggerCustomRefresh();
-        } else if (_pullOffset > 0 && !(_collapseAnimController?.isAnimating ?? false)) {
+        } else if (_pullOffset > 0 &&
+            !(_collapseAnimController?.isAnimating ?? false)) {
           _animateResetPullOffset();
         }
       }
@@ -148,7 +188,7 @@ class ProfileScreenState extends State<ProfileScreen>
   void _triggerCustomRefresh() async {
     if (_isRefreshing) return;
     _collapseAnimController?.stop();
-    setState(() {
+    _safeSetState(() {
       _isRefreshing = true;
       _pullOffset = 60.0;
     });
@@ -156,6 +196,7 @@ class ProfileScreenState extends State<ProfileScreen>
 
     try {
       final refreshFuture = AuthService.instance.fetchUserProfile();
+      _videosTabKey.currentState?.reload();
       final completer = Completer<void>();
       _minRefreshTimer?.cancel();
       _minRefreshTimer = Timer(const Duration(milliseconds: 500), () {
@@ -169,7 +210,7 @@ class ProfileScreenState extends State<ProfileScreen>
 
     if (mounted) {
       _refreshAnimController.stop();
-      setState(() {
+      _safeSetState(() {
         _isRefreshing = false;
       });
       _animateResetPullOffset();
@@ -179,12 +220,10 @@ class ProfileScreenState extends State<ProfileScreen>
   void _resetPullOffset() {
     _collapseAnimController?.stop();
     _refreshAnimController.stop();
-    if (mounted) {
-      setState(() {
-        _isRefreshing = false;
-        _pullOffset = 0.0;
-      });
-    }
+    _safeSetState(() {
+      _isRefreshing = false;
+      _pullOffset = 0.0;
+    });
   }
 
   void _animateResetPullOffset() {
@@ -204,7 +243,7 @@ class ProfileScreenState extends State<ProfileScreen>
 
     void listener() {
       if (!mounted) return;
-      setState(() {
+      _safeSetState(() {
         _pullOffset = (startOffset * (1.0 - curve.value)).clamp(0.0, 75.0);
       });
     }
@@ -214,7 +253,7 @@ class ProfileScreenState extends State<ProfileScreen>
       _collapseAnimController?.removeListener(listener);
       if (mounted) {
         _refreshAnimController.stop();
-        setState(() {
+        _safeSetState(() {
           _pullOffset = 0.0;
           _isRefreshing = false;
         });
@@ -225,7 +264,7 @@ class ProfileScreenState extends State<ProfileScreen>
   void _onScroll() {
     final show = _scrollController.hasClients && _scrollController.offset > 70;
     if (show != _showAppBarTitle) {
-      setState(() {
+      _safeSetState(() {
         _showAppBarTitle = show;
       });
     }
@@ -236,7 +275,8 @@ class ProfileScreenState extends State<ProfileScreen>
       if (!_isLoggedIn && _menuAnimationController.value > 0) {
         closeMenu(instant: true);
       }
-      setState(() {});
+      _safeSetState(() {});
+      _videosTabKey.currentState?.reload();
     }
   }
 
@@ -297,12 +337,19 @@ class ProfileScreenState extends State<ProfileScreen>
       final clean = user.fullName
           .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '')
           .toLowerCase();
-      return clean.isNotEmpty ? '@$clean' : '@chef_cookconnect';
+      return clean.isNotEmpty ? '@$clean' : '@daubep';
     }
     return '@linhdan_cook';
   }
 
-  int get _videoCount => AuthService.instance.currentUser?.videoCount ?? 0;
+  int get _videoCount {
+    final count = AuthService.instance.currentUser?.videoCount ?? 0;
+    if (_localVideoCount != null && _localVideoCount! > count) {
+      return _localVideoCount!;
+    }
+    return count;
+  }
+
   int get _followerCount =>
       AuthService.instance.currentUser?.followerCount ?? 0;
   int get _likeCount => AuthService.instance.currentUser?.likeCount ?? 0;
@@ -492,7 +539,9 @@ class ProfileScreenState extends State<ProfileScreen>
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(ApiI18n.text(UiI18nKeys.profileForgotPasswordSent)),
+                  content: Text(
+                    ApiI18n.text(UiI18nKeys.profileForgotPasswordSent),
+                  ),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -505,12 +554,7 @@ class ProfileScreenState extends State<ProfileScreen>
   }
 
   void _showAuthBottomSheet({String? message}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildAuthBottomSheet(message: message),
-    );
+    showAuthBottomSheet(context, message: message);
   }
 
   @override
@@ -522,148 +566,172 @@ class ProfileScreenState extends State<ProfileScreen>
         final menuWidth = screenWidth * 0.8; // 8 phần tùy chọn (80%)
 
         return PopScope(
-      canPop: _menuAnimationController.value == 0,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _menuAnimationController.value > 0) {
-          _closeMenu();
-        }
-      },
-      child: AnimatedBuilder(
-        animation: _menuCurvedAnimation,
-        builder: (context, child) {
-          final progress = _menuCurvedAnimation.value;
-          final slideOffset = menuWidth * progress;
+          canPop: _menuAnimationController.value == 0,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop && _menuAnimationController.value > 0) {
+              _closeMenu();
+            }
+          },
+          child: AnimatedBuilder(
+            animation: _menuCurvedAnimation,
+            builder: (context, child) {
+              final progress = _menuCurvedAnimation.value;
+              final slideOffset = menuWidth * progress;
 
-          return Stack(
-            children: [
-              // 1. Toàn bộ trang cá nhân bị đẩy sang trái khi mở menu (giữ lại 2 phần = 20% bên trái)
-              Transform.translate(
-                offset: Offset(-slideOffset, 0),
-                child: SizedBox(
-                  width: screenWidth,
-                  height: MediaQuery.of(context).size.height,
-                  child: Scaffold(
-                    backgroundColor: const Color(0xFFF8F9FA),
-                    appBar: AppBar(
-                      backgroundColor: Colors.white,
-                      surfaceTintColor: Colors.transparent,
-                      elevation: 0,
-                      scrolledUnderElevation: 0,
-                      centerTitle: true,
-                      leading: _isLoggedIn
-                          ? IconButton(
-                              icon: const Icon(Iconsax.edit_2, color: Colors.black87),
-                              tooltip: ApiI18n.text(UiI18nKeys.profileEditTooltip),
-                              onPressed: () => _navigateToEditProfileScreen(),
-                            )
-                          : null,
-                      title: _isLoggedIn
-                          ? IgnorePointer(
-                              ignoring: !_showAppBarTitle,
-                              child: AnimatedOpacity(
-                                opacity: _showAppBarTitle ? 1.0 : 0.0,
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeInOut,
-                                child: Text(
-                                  _userName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
+              return Stack(
+                children: [
+                  // 1. Toàn bộ trang cá nhân bị đẩy sang trái khi mở menu (giữ lại 2 phần = 20% bên trái)
+                  Transform.translate(
+                    offset: Offset(-slideOffset, 0),
+                    child: SizedBox(
+                      width: screenWidth,
+                      height: MediaQuery.of(context).size.height,
+                      child: Scaffold(
+                        backgroundColor: const Color(0xFFF8F9FA),
+                        appBar: AppBar(
+                          backgroundColor: Colors.white,
+                          surfaceTintColor: Colors.transparent,
+                          elevation: 0,
+                          scrolledUnderElevation: 0,
+                          centerTitle: true,
+                          leading: _isLoggedIn
+                              ? IconButton(
+                                  icon: const Icon(
+                                    Iconsax.edit_2,
                                     color: Colors.black87,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                          : Text(
-                              ApiI18n.text(UiI18nKeys.navProfile),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                                color: Colors.black87,
-                              ),
-                            ),
-                      actions: _isLoggedIn
-                          ? [
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.all(6),
-                                constraints: const BoxConstraints(),
-                                icon: const Icon(Iconsax.user_add, color: Colors.black87, size: 21),
-                                tooltip: ApiI18n.text(UiI18nKeys.profileFindFriendsTooltip),
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => const FindFriendsScreen(),
+                                  tooltip: ApiI18n.text(
+                                    UiI18nKeys.profileEditTooltip,
+                                  ),
+                                  onPressed: () =>
+                                      _navigateToEditProfileScreen(),
+                                )
+                              : null,
+                          title: _isLoggedIn
+                              ? IgnorePointer(
+                                  ignoring: !_showAppBarTitle,
+                                  child: AnimatedOpacity(
+                                    opacity: _showAppBarTitle ? 1.0 : 0.0,
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeInOut,
+                                    child: Text(
+                                      _userName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15,
+                                        color: Colors.black87,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  );
-                                },
-                              ),
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.all(6),
-                                constraints: const BoxConstraints(),
-                                icon: const Icon(Icons.menu_rounded, color: Colors.black87, size: 24),
-                                tooltip: ApiI18n.text(UiI18nKeys.profileMenuTooltip),
-                                onPressed: _openMenu,
-                              ),
-                              const SizedBox(width: 8),
-                            ]
-                          : null,
-                    ),
-                    body: _isLoggedIn ? _buildLoggedInView() : _buildGuestView(),
-                  ),
-                ),
-              ),
-
-              // 2. Lớp phủ lên 2 phần trang cá nhân còn lại bên trái (chạm để đóng / vuốt phải để đóng)
-              if (progress > 0)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: screenWidth - slideOffset,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _closeMenu,
-                    onHorizontalDragUpdate: (details) {
-                      if (details.primaryDelta != null && details.primaryDelta! > 3) {
-                        _closeMenu();
-                      }
-                    },
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.25 * progress),
-                    ),
-                  ),
-                ),
-
-              // 3. Tab/Page Tùy chọn chiếm 8 phần (80%) trượt vào từ bên phải
-              if (progress > 0)
-                Positioned(
-                  right: (1.0 - progress) * -menuWidth,
-                  top: 0,
-                  bottom: 0,
-                  width: menuWidth,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 16,
-                          offset: const Offset(-4, 0),
+                                  ),
+                                )
+                              : Text(
+                                  ApiI18n.text(UiI18nKeys.navProfile),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 20,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                          actions: _isLoggedIn
+                              ? [
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.all(6),
+                                    constraints: const BoxConstraints(),
+                                    icon: const Icon(
+                                      Iconsax.user_add,
+                                      color: Colors.black87,
+                                      size: 21,
+                                    ),
+                                    tooltip: ApiI18n.text(
+                                      UiI18nKeys.profileFindFriendsTooltip,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const FindFriendsScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.all(6),
+                                    constraints: const BoxConstraints(),
+                                    icon: const Icon(
+                                      Icons.menu_rounded,
+                                      color: Colors.black87,
+                                      size: 24,
+                                    ),
+                                    tooltip: ApiI18n.text(
+                                      UiI18nKeys.profileMenuTooltip,
+                                    ),
+                                    onPressed: _openMenu,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ]
+                              : null,
                         ),
-                      ],
+                        body: _isLoggedIn
+                            ? _buildLoggedInView()
+                            : _buildGuestView(),
+                      ),
                     ),
-                    child: _buildOptionsPage(context),
                   ),
-                ),
-            ],
-          );
-        },
-      ),
-    );
+
+                  // 2. Lớp phủ lên 2 phần trang cá nhân còn lại bên trái (chạm để đóng / vuốt phải để đóng)
+                  if (progress > 0)
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: screenWidth - slideOffset,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _closeMenu,
+                        onHorizontalDragUpdate: (details) {
+                          if (details.primaryDelta != null &&
+                              details.primaryDelta! > 3) {
+                            _closeMenu();
+                          }
+                        },
+                        child: Container(
+                          color: Colors.black.withValues(
+                            alpha: 0.25 * progress,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // 3. Tab/Page Tùy chọn chiếm 8 phần (80%) trượt vào từ bên phải
+                  if (progress > 0)
+                    Positioned(
+                      right: (1.0 - progress) * -menuWidth,
+                      top: 0,
+                      bottom: 0,
+                      width: menuWidth,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 16,
+                              offset: const Offset(-4, 0),
+                            ),
+                          ],
+                        ),
+                        child: _buildOptionsPage(context),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        );
       },
     );
   }
@@ -805,7 +873,11 @@ class ProfileScreenState extends State<ProfileScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Iconsax.magic_star, size: 20, color: Colors.orange),
+                    const Icon(
+                      Iconsax.magic_star,
+                      size: 20,
+                      color: Colors.orange,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       ApiI18n.text(UiI18nKeys.profileGuestBenefitsTitle),
@@ -826,9 +898,13 @@ class ProfileScreenState extends State<ProfileScreen>
                         iconColor: const Color(0xFFE76F51),
                         bgColor: const Color(0xFFFEE8E1),
                         title: ApiI18n.text(UiI18nKeys.profileBenefitSaveTitle),
-                        subtitle: ApiI18n.text(UiI18nKeys.profileBenefitSaveDesc),
+                        subtitle: ApiI18n.text(
+                          UiI18nKeys.profileBenefitSaveDesc,
+                        ),
                         onTap: () => _showAuthBottomSheet(
-                          message: ApiI18n.text(UiI18nKeys.profileBenefitSaveMsg),
+                          message: ApiI18n.text(
+                            UiI18nKeys.profileBenefitSaveMsg,
+                          ),
                         ),
                       ),
                     ),
@@ -839,9 +915,13 @@ class ProfileScreenState extends State<ProfileScreen>
                         iconColor: const Color(0xFFE63946),
                         bgColor: const Color(0xFFFFE5E7),
                         title: ApiI18n.text(UiI18nKeys.profileBenefitLikeTitle),
-                        subtitle: ApiI18n.text(UiI18nKeys.profileBenefitLikeDesc),
+                        subtitle: ApiI18n.text(
+                          UiI18nKeys.profileBenefitLikeDesc,
+                        ),
                         onTap: () => _showAuthBottomSheet(
-                          message: ApiI18n.text(UiI18nKeys.profileBenefitLikeMsg),
+                          message: ApiI18n.text(
+                            UiI18nKeys.profileBenefitLikeMsg,
+                          ),
                         ),
                       ),
                     ),
@@ -855,10 +935,16 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Iconsax.video_add,
                         iconColor: const Color(0xFF2A9D8F),
                         bgColor: const Color(0xFFE2F4F2),
-                        title: ApiI18n.text(UiI18nKeys.profileBenefitUploadTitle),
-                        subtitle: ApiI18n.text(UiI18nKeys.profileBenefitUploadDesc),
+                        title: ApiI18n.text(
+                          UiI18nKeys.profileBenefitUploadTitle,
+                        ),
+                        subtitle: ApiI18n.text(
+                          UiI18nKeys.profileBenefitUploadDesc,
+                        ),
                         onTap: () => _showAuthBottomSheet(
-                          message: ApiI18n.text(UiI18nKeys.profileBenefitUploadMsg),
+                          message: ApiI18n.text(
+                            UiI18nKeys.profileBenefitUploadMsg,
+                          ),
                         ),
                       ),
                     ),
@@ -868,10 +954,16 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Iconsax.people,
                         iconColor: const Color(0xFF457B9D),
                         bgColor: const Color(0xFFE3EDF4),
-                        title: ApiI18n.text(UiI18nKeys.profileBenefitFollowTitle),
-                        subtitle: ApiI18n.text(UiI18nKeys.profileBenefitFollowDesc),
+                        title: ApiI18n.text(
+                          UiI18nKeys.profileBenefitFollowTitle,
+                        ),
+                        subtitle: ApiI18n.text(
+                          UiI18nKeys.profileBenefitFollowDesc,
+                        ),
                         onTap: () => _showAuthBottomSheet(
-                          message: ApiI18n.text(UiI18nKeys.profileBenefitFollowMsg),
+                          message: ApiI18n.text(
+                            UiI18nKeys.profileBenefitFollowMsg,
+                          ),
                         ),
                       ),
                     ),
@@ -893,7 +985,9 @@ class ProfileScreenState extends State<ProfileScreen>
                 badgeText: ApiI18n.text(UiI18nKeys.profileNeedLogin),
                 trailingIcon: Iconsax.lock,
                 onTap: () => _showAuthBottomSheet(
-                  message: ApiI18n.text(UiI18nKeys.profileLoginToViewSavedDishes),
+                  message: ApiI18n.text(
+                    UiI18nKeys.profileLoginToViewSavedDishes,
+                  ),
                 ),
               ),
               _buildModernMenuItem(
@@ -902,16 +996,38 @@ class ProfileScreenState extends State<ProfileScreen>
                 badgeText: ApiI18n.text(UiI18nKeys.profileNeedLogin),
                 trailingIcon: Iconsax.lock,
                 onTap: () => _showAuthBottomSheet(
-                  message: ApiI18n.text(UiI18nKeys.profileLoginToViewLikedVideos),
+                  message: ApiI18n.text(
+                    UiI18nKeys.profileLoginToViewLikedVideos,
+                  ),
                 ),
               ),
               _buildModernMenuItem(
                 icon: Iconsax.clock,
                 title: ApiI18n.text(UiI18nKeys.profileRecentWatchHistory),
-                subtitle: ApiI18n.text(UiI18nKeys.profileRecentWatchHistorySubtitle),
+                subtitle: ApiI18n.text(
+                  UiI18nKeys.profileRecentWatchHistorySubtitle,
+                ),
                 onTap: () => _showAuthBottomSheet(
                   message: ApiI18n.text(UiI18nKeys.profileLoginToSyncHistory),
                 ),
+              ),
+              _buildModernMenuItem(
+                icon: Iconsax.truck_fast,
+                title: 'Đơn hàng của tôi',
+                subtitle: 'Theo dõi tiến trình và lịch sử các đơn hàng',
+                onTap: () {
+                  if (_isLoggedIn) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const MyOrdersScreen(),
+                      ),
+                    );
+                  } else {
+                    _showAuthBottomSheet(
+                      message: 'Đăng nhập để theo dõi các đơn hàng của bạn',
+                    );
+                  }
+                },
               ),
               _buildModernMenuItem(
                 icon: Iconsax.setting_2,
@@ -948,6 +1064,9 @@ class ProfileScreenState extends State<ProfileScreen>
   TabBar _buildTabBar(Color primaryColor) {
     return TabBar(
       controller: _tabController,
+      onTap: (_) {
+        if (mounted) _safeSetState(() {});
+      },
       dividerColor: Colors.transparent,
       splashFactory: NoSplash.splashFactory,
       overlayColor: WidgetStateProperty.all(Colors.transparent),
@@ -964,75 +1083,130 @@ class ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  bool _canScrollVideosTab(double screenWidth, double availableHeight) {
+    final int videoCount = _localVideoCount ?? _videoCount;
+    if (videoCount <= 0) return false;
+
+    final int rows = ((videoCount - 1) ~/ 3) + 1;
+    final double itemWidth = (screenWidth - 28.0) / 3.0;
+    final double itemHeight = itemWidth / 0.75;
+    final double gridHeight = 16.0 + (rows * itemHeight) + ((rows - 1) * 6.0);
+
+    // Profile header card is around 170-220px, TabBar is 48px -> ~240-260px
+    final double spaceBelowTabBar = availableHeight - 250.0;
+    return gridHeight > spaceBelowTabBar;
+  }
+
   // ==========================================
   // AUTHENTICATED VIEW (LOGGED IN)
   // ==========================================
   Widget _buildLoggedInView() {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    if (_tabController.index != 0) {
-      return Column(
-        children: [
-          _buildProfileHeaderCard(),
-          Container(
-            color: Colors.white,
-            child: _buildTabBar(primaryColor),
-          ),
-          Expanded(
-            child: _tabController.index == 1
-                ? const _ProfileLikedTab()
-                : const _ProfileSavedTab(),
-          ),
-        ],
-      );
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool canScroll =
+            _tabController.index == 0 &&
+            _canScrollVideosTab(constraints.maxWidth, constraints.maxHeight);
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: _handleScrollNotification,
-      child: ScrollConfiguration(
-        behavior: const ScrollBehavior().copyWith(
-          overscroll: false,
-          physics: const ClampingScrollPhysics(),
-        ),
-        child: NestedScrollView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
-              if (_pullOffset > 0 || _isRefreshing)
+        if (!canScroll) {
+          // Content fits on screen: pull-to-refresh the whole page.
+          return ColoredBox(
+            color: Colors.white,
+            child: CustomPullToRefresh(
+              primaryColor: primaryColor,
+              onRefresh: () async {
+                await Future.wait([
+                  AuthService.instance.fetchUserProfile(),
+                  if (_videosTabKey.currentState != null)
+                    _videosTabKey.currentState!.refresh(),
+                ]);
+              },
+              slivers: [
+                SliverToBoxAdapter(child: _buildProfileHeaderCard()),
                 SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: _pullOffset,
-                    child: ClipRect(
-                      child: Container(
-                        color: Colors.white,
-                        alignment: Alignment.center,
-                        child: CustomRefreshBadge(
-                          isRefreshing: _isRefreshing,
-                          percentage: (_pullOffset / 55.0).clamp(0.0, 1.0),
-                          primaryColor: primaryColor,
-                          animController: _refreshAnimController,
+                  child: Container(
+                    color: Colors.white,
+                    child: _buildTabBar(primaryColor),
+                  ),
+                ),
+                SliverFillRemaining(
+                  hasScrollBody: true,
+                  child: _tabController.index == 1
+                      ? const _ProfileLikedTab()
+                      : _tabController.index == 2
+                      ? const _ProfileSavedTab()
+                      : _ProfileVideosTab(
+                          key: _videosTabKey,
+                          physics: const NeverScrollableScrollPhysics(),
+                          onVideosCountChanged: (count) {
+                            if (mounted && _localVideoCount != count) {
+                              _safeSetState(() {
+                                _localVideoCount = count;
+                              });
+                            }
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return NotificationListener<ScrollNotification>(
+          onNotification: _handleScrollNotification,
+          child: ScrollConfiguration(
+            behavior: const ScrollBehavior().copyWith(
+              overscroll: false,
+              physics: const ClampingScrollPhysics(),
+            ),
+            child: NestedScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
+              ),
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  if (_pullOffset > 0 || _isRefreshing)
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: _pullOffset,
+                        child: ClipRect(
+                          child: Container(
+                            color: Colors.white,
+                            alignment: Alignment.center,
+                            child: CustomRefreshBadge(
+                              isRefreshing: _isRefreshing,
+                              percentage: (_pullOffset / 55.0).clamp(0.0, 1.0),
+                              primaryColor: primaryColor,
+                              animController: _refreshAnimController,
+                            ),
+                          ),
                         ),
                       ),
                     ),
+                  SliverToBoxAdapter(child: _buildProfileHeaderCard()),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SliverTabBarDelegate(_buildTabBar(primaryColor)),
                   ),
-                ),
-              SliverToBoxAdapter(
-                child: _buildProfileHeaderCard(),
+                ];
+              },
+              body: _ProfileVideosTab(
+                key: _videosTabKey,
+                physics: const ClampingScrollPhysics(),
+                onVideosCountChanged: (count) {
+                  if (mounted && _localVideoCount != count) {
+                    _safeSetState(() {
+                      _localVideoCount = count;
+                    });
+                  }
+                },
               ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SliverTabBarDelegate(
-                  _buildTabBar(primaryColor),
-                ),
-              ),
-            ];
-          },
-          body: const _ProfileVideosTab(),
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1079,7 +1253,10 @@ class ProfileScreenState extends State<ProfileScreen>
                     // Social stats directly below Username (no box, no following)
                     Row(
                       children: [
-                        _buildInlineStatItem('$_videoCount', ApiI18n.text(UiI18nKeys.profileStatRecipes)),
+                        _buildInlineStatItem(
+                          '$_videoCount',
+                          ApiI18n.text(UiI18nKeys.profileStatRecipes),
+                        ),
                         const SizedBox(width: 28),
                         _buildInlineStatItem(
                           _followerCount >= 1000
@@ -1124,22 +1301,26 @@ class ProfileScreenState extends State<ProfileScreen>
                               width: 76,
                               height: 76,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [Colors.orange[300]!, primaryColor],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.orange[300]!,
+                                          primaryColor,
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Iconsax.user,
+                                        size: 40,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Iconsax.user,
-                                    size: 40,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
                             )
                           : Container(
                               decoration: BoxDecoration(
@@ -1450,211 +1631,7 @@ class ProfileScreenState extends State<ProfileScreen>
   // AUTH MODAL BOTTOM SHEET
   // ==========================================
   Widget _buildAuthBottomSheet({String? message}) {
-    final primaryColor = Theme.of(context).colorScheme.primary;
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Logo / Header
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: primaryColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Iconsax.profile_circle5, size: 36, color: primaryColor),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            ApiI18n.text(UiI18nKeys.profileAuthSheetTitle),
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            message ?? ApiI18n.text(UiI18nKeys.profileAuthSheetDesc),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // SĐT / Email / Username Option (Primary)
-          _buildAuthOptionButton(
-            leading: Icon(
-              Icons.phone_android_rounded,
-              size: 22,
-              color: primaryColor,
-            ),
-            title: ApiI18n.text(UiI18nKeys.profileAuthOptionCredentials),
-            onTap: () {
-              Navigator.pop(context);
-              _navigateToLoginScreen();
-            },
-          ),
-          const SizedBox(height: 10),
-
-          // Google Login Button with authentic 4-color Google logo
-          _buildAuthOptionButton(
-            leading: const GoogleLogoWidget(size: 22),
-            title: ApiI18n.text(UiI18nKeys.profileAuthOptionGoogle),
-            onTap: () {
-              Navigator.pop(context);
-              _showSocialUnderDevelopment('Google');
-            },
-          ),
-          const SizedBox(height: 10),
-
-          // Apple Login Button
-          _buildAuthOptionButton(
-            leading: const Icon(
-              FlutterRemix.apple_fill,
-              size: 22,
-              color: Colors.black,
-            ),
-            title: ApiI18n.text(UiI18nKeys.profileAuthOptionApple),
-            onTap: () {
-              Navigator.pop(context);
-              _showSocialUnderDevelopment('Apple');
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          // Row for "Quên mật khẩu?" (left) and "Đăng ký tài khoản" (right)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showForgotPasswordDialog();
-                },
-                icon: Icon(Iconsax.key, size: 16, color: Colors.grey[600]),
-                label: Text(
-                  ApiI18n.text(UiI18nKeys.profileForgotPasswordTitle),
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 4,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _navigateToLoginScreen(initialSignUp: true);
-                },
-                icon: Icon(Iconsax.user_add, size: 16, color: primaryColor),
-                label: Text(
-                  ApiI18n.text(UiI18nKeys.profileAuthRegister),
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 4,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          Text(
-            ApiI18n.text(UiI18nKeys.profileAuthDisclaimer),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[500],
-              height: 1.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAuthOptionButton({
-    required Widget leading,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: const Color(0xFFF6F7F9),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.withValues(alpha: 0.18)),
-          ),
-          child: Row(
-            children: [
-              leading,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              const Icon(Iconsax.arrow_right_3, size: 16, color: Colors.grey),
-            ],
-          ),
-        ),
-      ),
-    );
+    return AuthBottomSheet(message: message);
   }
 
   Widget _buildOptionsPage(BuildContext context) {
@@ -1688,6 +1665,18 @@ class ProfileScreenState extends State<ProfileScreen>
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const ActivityScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildDrawerMenuItem(
+                icon: Iconsax.truck_fast,
+                title: 'Đơn hàng của tôi',
+                onTap: () {
+                  _closeMenu();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const MyOrdersScreen(),
                     ),
                   );
                 },
@@ -1757,7 +1746,6 @@ class ProfileScreenState extends State<ProfileScreen>
       ),
     );
   }
-
 }
 
 class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
@@ -1776,10 +1764,7 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(
-      color: Colors.white,
-      child: tabBar,
-    );
+    return Container(color: Colors.white, child: tabBar);
   }
 
   @override
@@ -1788,114 +1773,424 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-class _ProfileVideosTab extends StatefulWidget {
-  const _ProfileVideosTab();
+typedef _ProfileVideosTab = ProfileVideosTab;
+
+class ProfileVideosTab extends StatefulWidget {
+  final String? userId;
+  final PostApiService? postApiService;
+  final ValueChanged<int>? onVideosCountChanged;
+  final ScrollPhysics? physics;
+
+  /// When true the tab owns its scroll view and supports pull-to-refresh
+  /// via [CustomPullToRefresh] (used when the parent is not scrollable).
+  final bool enablePullToRefresh;
+
+  const ProfileVideosTab({
+    super.key,
+    this.enablePullToRefresh = false,
+    this.userId,
+    this.postApiService,
+    this.onVideosCountChanged,
+    this.physics,
+  });
 
   @override
-  State<_ProfileVideosTab> createState() => _ProfileVideosTabState();
+  State<ProfileVideosTab> createState() => ProfileVideosTabState();
 }
 
-class _ProfileVideosTabState extends State<_ProfileVideosTab>
+class ProfileVideosTabState extends State<ProfileVideosTab>
     with AutomaticKeepAliveClientMixin {
+  late final PostApiService _postApiService;
+  List<PostItem> _posts = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _postApiService = widget.postApiService ?? PostApiService();
+    PostApiService.postsChanged.addListener(reload);
+    _fetchVideos();
+  }
+
+  @override
+  void dispose() {
+    PostApiService.postsChanged.removeListener(reload);
+    super.dispose();
+  }
+
+  void reload() {
+    _fetchVideos(isRefresh: true);
+  }
+
+  Future<void> refresh() => _fetchVideos(isRefresh: true);
+
+  Future<void> _fetchVideos({bool isRefresh = false}) async {
+    final u = AuthService.instance.currentUser;
+    final candidateIds = <String>{
+      if (widget.userId != null && widget.userId!.isNotEmpty)
+        widget.userId!
+      else
+        ...[
+          u?.id,
+          u?.userId,
+          u?.accountId,
+          u?.userProfileId,
+          AuthService.instance.tokens?.sub,
+        ].whereType<String>().where((e) => e.isNotEmpty),
+    };
+    final currentUserId = candidateIds.isEmpty ? null : candidateIds.first;
+
+    if (currentUserId == null || currentUserId.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _posts = [];
+          _isLoading = false;
+        });
+        widget.onVideosCountChanged?.call(0);
+      }
+      return;
+    }
+
+    if (!isRefresh && _posts.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final token = AuthService.instance.tokens?.accessToken;
+      final byId = <String, PostItem>{};
+      for (final id in candidateIds) {
+        try {
+          final r = await _postApiService.getFeed(
+            userId: id,
+            limit: 20,
+            token: token,
+          );
+          for (final item in r.items) {
+            byId[item.postId] = item;
+          }
+        } catch (_) {
+          // Try the next candidate id.
+        }
+      }
+      final response = (items: byId.values.toList());
+
+      if (mounted) {
+        setState(() {
+          _posts = response.items;
+          _isLoading = false;
+          _errorMessage = null;
+        });
+        widget.onVideosCountChanged?.call(_posts.length);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (_posts.isEmpty) {
+            _errorMessage = e.toString();
+          }
+        });
+      }
+    }
+  }
+
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    }
+    return count.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    final mockVideoViews = [
-      '12.5K', '8.2K', '3.1K', '940', '15.8K', '6.4K',
-      '2.7K', '18.3K', '5.5K', '1.1K', '24.9K', '7.8K',
-      '4.2K', '11.0K', '9.6K', '32.1K', '14.3K', '6.9K',
-      '880', '19.4K', '5.1K', '2.3K', '16.7K', '8.9K',
-      '1.5K', '27.4K', '10.2K', '4.8K', '13.6K', '7.3K',
-      '3.9K', '21.0K', '8.5K', '1.9K', '17.8K', '11.4K',
-    ];
-
     return Builder(
       builder: (context) {
+        final slivers = <Widget>[
+          if (_isLoading && _posts.isEmpty)
+            _buildLoadingGrid()
+          else if (_errorMessage != null && _posts.isEmpty)
+            _buildErrorState()
+          else if (_posts.isEmpty)
+            _buildEmptyState()
+          else
+            _buildVideosGrid(),
+        ];
+
+        if (widget.enablePullToRefresh) {
+          return CustomPullToRefresh(
+            scrollKey: const PageStorageKey<String>('profile_tab_videos'),
+            primaryColor: Theme.of(context).colorScheme.primary,
+            onRefresh: () async {
+              await Future.wait([
+                AuthService.instance.fetchUserProfile(),
+                _fetchVideos(isRefresh: true),
+              ]);
+            },
+            slivers: slivers,
+          );
+        }
+
         return CustomScrollView(
           key: const PageStorageKey<String>('profile_tab_videos'),
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.all(8),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 6,
-                  mainAxisSpacing: 6,
-                  childAspectRatio: 0.75,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final views = mockVideoViews[index % mockVideoViews.length];
+          physics:
+              widget.physics ??
+              const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
+              ),
+          slivers: slivers,
+        );
+      },
+    );
+  }
 
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0F2F5),
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFFF3F4F6),
-                              Color(0xFFE5E7EB),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          border: Border.all(
-                            color: const Color(0xFFE5E7EB),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            const Center(
-                              child: Icon(
-                                Iconsax.video_play,
-                                color: Color(0xFF9CA3AF),
-                                size: 28,
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 6,
-                              left: 6,
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Iconsax.play,
-                                    size: 10.5,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    views,
-                                    style: const TextStyle(
-                                      color: Color(0xFF4B5563),
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  childCount: 36,
+  Widget _buildLoadingGrid() {
+    return SliverPadding(
+      padding: const EdgeInsets.all(8),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 6,
+          mainAxisSpacing: 6,
+          childAspectRatio: 0.75,
+        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F2F5),
+                border: Border.all(color: const Color(0xFFE5E7EB), width: 0.8),
+              ),
+              child: const Center(
+                child: Icon(
+                  Iconsax.video_play,
+                  color: Color(0xFFCBD5E1),
+                  size: 26,
                 ),
               ),
             ),
+          );
+        }, childCount: 9),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Container(
+        color: Colors.white,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Iconsax.video_play, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(
+              'Chưa có video nào',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Các video công thức bạn đã đăng tải sẽ hiển thị ở đây.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
           ],
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Iconsax.info_circle, size: 48, color: Colors.grey[400]),
+              const SizedBox(height: 12),
+              const Text(
+                'Không thể tải danh sách video',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () => _fetchVideos(),
+                icon: const Icon(Iconsax.refresh, size: 16),
+                label: const Text('Thử lại'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF5722),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideosGrid() {
+    final currentUser = AuthService.instance.currentUser;
+    final currentUsername = currentUser?.username ?? '';
+    final currentDisplayName = currentUser?.fullName ?? '';
+    final currentAvatar = currentUser?.avatar;
+
+    return SliverPadding(
+      padding: const EdgeInsets.all(8),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 6,
+          mainAxisSpacing: 6,
+          childAspectRatio: 0.75,
+        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final post = _posts[index];
+
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => UserVideoFeedScreen(
+                    posts: _posts,
+                    initialIndex: index,
+                    authorName: currentDisplayName,
+                    authorUsername: currentUsername,
+                    authorAvatar: currentAvatar,
+                  ),
+                ),
+              );
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Video Thumbnail Image
+                    if (post.thumbnailUrl.isNotEmpty)
+                      Image.network(
+                        post.thumbnailUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: const Color(0xFF1E293B),
+                          child: const Center(
+                            child: Icon(
+                              Iconsax.video_play,
+                              color: Color(0xFF64748B),
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        color: const Color(0xFF1E293B),
+                        child: const Center(
+                          child: Icon(
+                            Iconsax.video_play,
+                            color: Color(0xFF64748B),
+                            size: 28,
+                          ),
+                        ),
+                      ),
+
+                    // Gradient shadow at bottom
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 38,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.75),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // View count + Play Icon in bottom-left
+                    Positioned(
+                      bottom: 6,
+                      left: 6,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Iconsax.play,
+                            size: 11,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            _formatCount(post.viewCount),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black54,
+                                  offset: Offset(0, 1),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }, childCount: _posts.length),
+      ),
     );
   }
 }
@@ -1919,10 +2214,7 @@ class _ProfileLikedTabState extends State<_ProfileLikedTab>
     return Container(
       color: Colors.white,
       alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 32,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -1939,10 +2231,7 @@ class _ProfileLikedTabState extends State<_ProfileLikedTab>
           const SizedBox(height: 4),
           Text(
             ApiI18n.text(UiI18nKeys.profileLikedVideosSubtitle),
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade500,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -1969,10 +2258,7 @@ class _ProfileSavedTabState extends State<_ProfileSavedTab>
     return Container(
       color: Colors.white,
       alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 32,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -1989,15 +2275,10 @@ class _ProfileSavedTabState extends State<_ProfileSavedTab>
           const SizedBox(height: 4),
           Text(
             ApiI18n.text(UiI18nKeys.profileSavedRecipesSubtitle),
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade500,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
         ],
       ),
     );
   }
 }
-
-

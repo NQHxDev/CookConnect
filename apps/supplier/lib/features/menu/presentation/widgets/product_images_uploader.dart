@@ -15,6 +15,7 @@ import 'package:cook_connect_seller/core/theme/app_colors.dart';
 class ProductImagesUploader extends StatefulWidget {
   final List<String> images;
   final ValueChanged<List<String>> onImagesChanged;
+  final Future<String> Function(String localPath)? onUploadImage;
   final int minImages;
   final int maxImages;
 
@@ -22,6 +23,7 @@ class ProductImagesUploader extends StatefulWidget {
     super.key,
     required this.images,
     required this.onImagesChanged,
+    this.onUploadImage,
     this.minImages = 5,
     this.maxImages = 10,
   });
@@ -33,30 +35,152 @@ class ProductImagesUploader extends StatefulWidget {
 class _ProductImagesUploaderState extends State<ProductImagesUploader> {
   final ImagePicker _picker = ImagePicker();
   bool _showTips = false;
+  final Set<String> _uploadingPaths = {};
+  final Map<String, String> _uploadErrors = {};
+
+  @visibleForTesting
+  void addImagesForTesting(List<String> paths) => _addImages(paths);
 
   bool get _hasCover => widget.images.isNotEmpty;
   bool get _hasEnoughImages => widget.images.length >= widget.minImages;
+
+  void _addImages(List<String> newPaths) {
+    if (newPaths.isEmpty) return;
+    final currentList = List<String>.from(widget.images);
+    final remaining = widget.maxImages - currentList.length;
+    if (remaining <= 0) return;
+
+    final toAdd = newPaths.take(remaining).toList();
+    currentList.addAll(toAdd);
+    widget.onImagesChanged(currentList);
+
+    if (widget.onUploadImage != null) {
+      for (final path in toAdd) {
+        _uploadAsync(path);
+      }
+    }
+  }
+
+  Future<void> _uploadAsync(String localPath) async {
+    if (widget.onUploadImage == null) return;
+    if (mounted) {
+      setState(() {
+        _uploadingPaths.add(localPath);
+        _uploadErrors.remove(localPath);
+      });
+    }
+    try {
+      final cdnUrl = await widget.onUploadImage!(localPath);
+      if (mounted) {
+        final cur = List<String>.from(widget.images);
+        final idx = cur.indexOf(localPath);
+        if (idx != -1) {
+          cur[idx] = cdnUrl;
+          widget.onImagesChanged(cur);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _uploadErrors[localPath] = e.toString();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tải ảnh lên máy chủ thất bại: $e'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.error,
+            action: SnackBarAction(
+              label: 'Thử lại',
+              textColor: Colors.white,
+              onPressed: () => _retryUpload(localPath),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _uploadingPaths.remove(localPath);
+        });
+      }
+    }
+  }
+
+  Future<void> _retryUpload(String localPath) async {
+    if (widget.onUploadImage == null) return;
+    if (mounted) {
+      setState(() {
+        _uploadingPaths.add(localPath);
+        _uploadErrors.remove(localPath);
+      });
+    }
+    try {
+      final cdnUrl = await widget.onUploadImage!(localPath);
+      if (mounted) {
+        final cur = List<String>.from(widget.images);
+        final idx = cur.indexOf(localPath);
+        if (idx != -1) {
+          cur[idx] = cdnUrl;
+          widget.onImagesChanged(cur);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _uploadErrors[localPath] = e.toString();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Thử lại tải ảnh thất bại: $e'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _uploadingPaths.remove(localPath);
+        });
+      }
+    }
+  }
 
   Future<void> _pickImages(ImageSource source) async {
     try {
       if (source == ImageSource.camera) {
         final XFile? photo = await _picker.pickImage(
           source: ImageSource.camera,
+          maxWidth: 1600,
+          maxHeight: 1600,
           imageQuality: 85,
         );
         if (photo != null) {
-          final updated = List<String>.from(widget.images)..add(photo.path);
-          widget.onImagesChanged(updated);
+          _addImages([photo.path]);
         }
       } else {
+        final remaining = widget.maxImages - widget.images.length;
+        if (remaining <= 0) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Đã đạt giới hạn tối đa ${widget.maxImages} ảnh.'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
+        }
+
         final List<XFile> picked = await _picker.pickMultiImage(
+          maxWidth: 1600,
+          maxHeight: 1600,
           imageQuality: 85,
+          limit: remaining,
         );
         if (picked.isNotEmpty) {
-          final remaining = widget.maxImages - widget.images.length;
-          final toAdd = picked.take(remaining).map((e) => e.path).toList();
-          final updated = List<String>.from(widget.images)..addAll(toAdd);
-          widget.onImagesChanged(updated);
+          final paths = picked.map((x) => x.path).toList();
+          _addImages(paths);
 
           if (picked.length > remaining && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -237,6 +361,9 @@ class _ProductImagesUploaderState extends State<ProductImagesUploader> {
 
   void _removeImage(int index) {
     if (index < 0 || index >= widget.images.length) return;
+    final path = widget.images[index];
+    _uploadingPaths.remove(path);
+    _uploadErrors.remove(path);
     final updated = List<String>.from(widget.images)..removeAt(index);
     widget.onImagesChanged(updated);
   }
@@ -260,11 +387,16 @@ class _ProductImagesUploaderState extends State<ProductImagesUploader> {
     );
   }
 
-  Widget _buildImageWidget(String path, {BoxFit fit = BoxFit.cover}) {
+  Widget _buildImageWidget(
+    String path, {
+    BoxFit fit = BoxFit.cover,
+    int? cacheWidth,
+  }) {
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return Image.network(
         path,
         fit: fit,
+        cacheWidth: cacheWidth ?? 800,
         errorBuilder: (_, _, _) => Container(
           color: Colors.grey.shade100,
           child: const Center(
@@ -276,6 +408,8 @@ class _ProductImagesUploaderState extends State<ProductImagesUploader> {
     return Image.file(
       File(path),
       fit: fit,
+      cacheWidth: cacheWidth ?? 800,
+      filterQuality: FilterQuality.medium,
       errorBuilder: (_, _, _) => Container(
         color: Colors.grey.shade100,
         child: const Center(
@@ -644,6 +778,71 @@ class _ProductImagesUploaderState extends State<ProductImagesUploader> {
                 ],
               ),
             ),
+
+            // Uploading spinner overlay
+            if (_uploadingPaths.contains(coverPath))
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Đang tải lên...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // Error overlay
+            if (_uploadErrors.containsKey(coverPath))
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 30),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Tải ảnh thất bại',
+                          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () => _retryUpload(coverPath),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Text('Thử lại', style: TextStyle(color: Colors.white, fontSize: 11)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -762,7 +961,7 @@ class _ProductImagesUploaderState extends State<ProductImagesUploader> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(11),
-              child: _buildImageWidget(path),
+              child: _buildImageWidget(path, cacheWidth: 260),
             ),
           ),
         ),
@@ -836,6 +1035,54 @@ class _ProductImagesUploaderState extends State<ProductImagesUploader> {
             ),
           ),
         ),
+
+        // Uploading indicator overlay
+        if (_uploadingPaths.contains(path))
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Error retry overlay
+        if (_uploadErrors.containsKey(path))
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => _retryUpload(path),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh, color: Colors.white, size: 22),
+                      SizedBox(height: 2),
+                      Text(
+                        'Thử lại',
+                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1054,11 +1301,19 @@ class _ImagePreviewLightboxState extends State<_ImagePreviewLightbox> {
   Widget _buildFullImage(String path) {
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return InteractiveViewer(
-        child: Image.network(path, fit: BoxFit.contain),
+        child: Image.network(
+          path,
+          fit: BoxFit.contain,
+          cacheWidth: 1200,
+        ),
       );
     }
     return InteractiveViewer(
-      child: Image.file(File(path), fit: BoxFit.contain),
+      child: Image.file(
+        File(path),
+        fit: BoxFit.contain,
+        cacheWidth: 1200,
+      ),
     );
   }
 

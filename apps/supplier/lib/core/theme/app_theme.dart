@@ -56,6 +56,12 @@ class AppTheme {
           horizontal: 16,
           vertical: 14,
         ),
+        hintStyle: const TextStyle(
+          color: Color(0xFFB0B0B0),
+          fontSize: 13.5,
+          fontWeight: FontWeight.normal,
+        ),
+        prefixIconColor: Color(0xFF9E9E9E),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.border),

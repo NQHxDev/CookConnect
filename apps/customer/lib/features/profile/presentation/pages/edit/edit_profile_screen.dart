@@ -404,7 +404,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Vị trí / Địa chỉ',
+                  'Khu vực / Tỉnh thành',
                   style: TextStyle(
                     fontSize: 16.5,
                     fontWeight: FontWeight.bold,
@@ -456,6 +456,144 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               }
                             }
                             AuthService.instance.updateUser(location: text);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Lưu'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showEditAddressDialog() {
+    final user = AuthService.instance.currentUser;
+    final controller = TextEditingController(text: user?.address ?? '');
+    bool isSaving = false;
+    String? errorText;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final primaryColor = Theme.of(ctx).colorScheme.primary;
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Địa chỉ nơi ở',
+                  style: TextStyle(
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Ví dụ: 123 Nguyễn Trãi, Thanh Xuân, Hà Nội',
+                    errorText: errorText,
+                    filled: true,
+                    fillColor: const Color(0xFFF8F9FA),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    prefixIcon: const Icon(Iconsax.map, size: 20),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final text = controller.text.trim();
+                            if (text.isEmpty) {
+                              setModalState(() => errorText = 'Vui lòng nhập địa chỉ');
+                              return;
+                            }
+                            if (text.length < 3) {
+                              setModalState(() => errorText = 'Địa chỉ tối thiểu 3 ký tự');
+                              return;
+                            }
+                            if (text.length > 255) {
+                              setModalState(() => errorText = 'Địa chỉ tối đa 255 ký tự');
+                              return;
+                            }
+
+                            setModalState(() {
+                              isSaving = true;
+                              errorText = null;
+                            });
+
+                            final token = AuthService.instance.tokens?.accessToken;
+                            if (token != null && token.isNotEmpty) {
+                              final apiService = ApiService();
+                              final res = await apiService.updateAddress(
+                                accessToken: token,
+                                address: text,
+                              );
+                              if (!res.isSuccess && mounted && ctx.mounted) {
+                                setModalState(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(res.error ?? 'Cập nhật địa chỉ thất bại'),
+                                    backgroundColor: Colors.red[700],
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                return;
+                              }
+                            }
+                            AuthService.instance.updateUser(address: text);
                             if (ctx.mounted) Navigator.pop(ctx);
                           },
                     style: ElevatedButton.styleFrom(
@@ -729,10 +867,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 _buildDivider(),
                 _buildRowItem(
-                  title: 'Vị trí / Địa chỉ',
+                  title: 'Địa chỉ nơi ở',
+                  value: (user?.address != null && user!.address!.isNotEmpty)
+                      ? user.address!
+                      : 'Thêm địa chỉ...',
+                  isPlaceholder: user?.address == null || user!.address!.isEmpty,
+                  onTap: _showEditAddressDialog,
+                ),
+                _buildDivider(),
+                _buildRowItem(
+                  title: 'Khu vực / Tỉnh thành',
                   value: (user?.location != null && user!.location!.isNotEmpty)
                       ? user.location!
-                      : 'Thêm địa chỉ...',
+                      : 'Thêm vị trí...',
                   isPlaceholder: user?.location == null || user!.location!.isEmpty,
                   onTap: _showEditLocationDialog,
                 ),

@@ -543,7 +543,12 @@ class _CookingCameraScreenState extends State<CookingCameraScreen>
     });
   }
 
-  void _navigateToEditor({String? videoPath, String? videoFileName}) {
+  @visibleForTesting
+  Future<void> navigateToEditorForTesting({String? videoPath, String? videoFileName}) {
+    return _navigateToEditor(videoPath: videoPath, videoFileName: videoFileName);
+  }
+
+  Future<void> _navigateToEditor({String? videoPath, String? videoFileName}) async {
     if (videoPath == null && _totalRecordedMillis < 3000) {
       _showMinDurationAlert();
       return;
@@ -557,8 +562,12 @@ class _CookingCameraScreenState extends State<CookingCameraScreen>
         videoFileName ??
         'CookConnect_Clip_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
+    try {
+      _cameraController?.pausePreview().catchError((_) {});
+    } catch (_) {}
+
     final nav = Navigator.of(context);
-    nav.pushReplacement(
+    final published = await nav.push<bool>(
       MaterialPageRoute(
         builder: (editorContext) => UploadScreen(
           initialVideoPath: finalVideoPath,
@@ -567,17 +576,25 @@ class _CookingCameraScreenState extends State<CookingCameraScreen>
           initialSoundtrack: _selectedSoundtrack,
           onCancel: () {
             if (editorContext.mounted) {
-              Navigator.of(editorContext).pop();
+              Navigator.of(editorContext).pop(false);
             }
           },
           onPublished: () {
             if (editorContext.mounted) {
-              Navigator.of(editorContext).pop();
+              Navigator.of(editorContext).pop(true);
             }
           },
         ),
       ),
     );
+
+    if (published == true && mounted) {
+      Navigator.of(context).pop(true);
+    } else if (mounted) {
+      try {
+        _cameraController?.resumePreview().catchError((_) {});
+      } catch (_) {}
+    }
   }
 
   void _showSoundPicker() {

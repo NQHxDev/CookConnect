@@ -149,25 +149,6 @@ class _RegisterPasswordScreenState extends State<RegisterPasswordScreen> {
           widget.onLoginSuccess!(displayName, widget.email);
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Iconsax.tick_circle, color: Colors.white),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Đăng ký tài khoản thành công! Chào mừng bạn.',
-                    style: TextStyle(fontSize: 13.5),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green[700],
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-
         // Navigate to mandatory full-screen profile setup
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(

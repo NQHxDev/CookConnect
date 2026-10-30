@@ -14,64 +14,68 @@ void main() {
   });
 
   group('ApiConfig Tests', () {
-    test('Default configuration points to LAN IP 192.168.1.162:8080', () {
-      expect(ApiConfig.baseUrl, 'http://192.168.1.162:8080');
-      expect(ApiConfig.apiBaseUrl, 'http://192.168.1.162:8080/api/v1');
-      expect(ApiConfig.healthUrl, 'http://192.168.1.162:8080/api/v1/health');
+    test('Default configuration points to configured LAN IP', () {
+      final base = ApiConfig.baseUrl;
+      expect(ApiConfig.apiBaseUrl, '$base/api/v1');
+      expect(ApiConfig.healthUrl, '$base/api/v1/health');
       expect(
         ApiConfig.sendOtpUrl,
-        'http://192.168.1.162:8080/api/v1/auth/register/send-otp',
+        '$base/api/v1/auth/register/send-otp',
       );
       expect(
         ApiConfig.verifyOtpUrl,
-        'http://192.168.1.162:8080/api/v1/auth/register/verify-otp',
+        '$base/api/v1/auth/register/verify-otp',
       );
       expect(
         ApiConfig.registerUrl,
-        'http://192.168.1.162:8080/api/v1/auth/register',
+        '$base/api/v1/auth/register',
       );
-      expect(ApiConfig.loginUrl, 'http://192.168.1.162:8080/api/v1/auth/login');
+      expect(ApiConfig.loginUrl, '$base/api/v1/auth/login');
       expect(
         ApiConfig.logoutUrl,
-        'http://192.168.1.162:8080/api/v1/auth/logout',
+        '$base/api/v1/auth/logout',
       );
       expect(
         ApiConfig.refreshUrl,
-        'http://192.168.1.162:8080/api/v1/auth/refresh',
+        '$base/api/v1/auth/refresh',
       );
-      expect(ApiConfig.meUrl, 'http://192.168.1.162:8080/api/v1/auth/me');
-      expect(ApiConfig.userMeUrl, 'http://192.168.1.162:8080/api/v1/users/me');
+      expect(ApiConfig.meUrl, '$base/api/v1/auth/me');
+      expect(ApiConfig.userMeUrl, '$base/api/v1/users/me');
       expect(
         ApiConfig.userPersonalInfoUrl,
-        'http://192.168.1.162:8080/api/v1/users/me/personal-info',
+        '$base/api/v1/users/me/personal-info',
       );
       expect(
         ApiConfig.userDisplayNameUrl,
-        'http://192.168.1.162:8080/api/v1/users/me/display-name',
+        '$base/api/v1/users/me/display-name',
       );
       expect(
         ApiConfig.userBioUrl,
-        'http://192.168.1.162:8080/api/v1/users/me/bio',
+        '$base/api/v1/users/me/bio',
       );
       expect(
         ApiConfig.userLocationUrl,
-        'http://192.168.1.162:8080/api/v1/users/me/location',
+        '$base/api/v1/users/me/location',
+      );
+      expect(
+        ApiConfig.userAddressUrl,
+        '$base/api/v1/users/me/address',
       );
       expect(
         ApiConfig.userWebsiteUrl,
-        'http://192.168.1.162:8080/api/v1/users/me/website',
+        '$base/api/v1/users/me/website',
       );
       expect(
         ApiConfig.userCoverImageUrl,
-        'http://192.168.1.162:8080/api/v1/users/me/cover-image',
+        '$base/api/v1/users/me/cover-image',
       );
       expect(
         ApiConfig.userUsernameUrl,
-        'http://192.168.1.162:8080/api/v1/users/me/username',
+        '$base/api/v1/users/me/username',
       );
       expect(
         ApiConfig.userProfileUrl,
-        'http://192.168.1.162:8080/api/v1/users/profile',
+        '$base/api/v1/users/profile',
       );
     });
   });
@@ -92,6 +96,7 @@ void main() {
           'avatar': 'https://example.com/avatar.jpg',
           'gender': 'FEMALE',
           'dateOfBirth': '1998-08-15',
+          'address': '123 Nguyễn Trãi, Thanh Xuân, Hà Nội',
         },
         'stats': {
           'followersCount': 1200,
@@ -112,6 +117,7 @@ void main() {
       expect(user.bio, 'Yêu nấu ăn và làm bánh');
       expect(user.gender, 'FEMALE');
       expect(user.dateOfBirth, '1998-08-15');
+      expect(user.address, '123 Nguyễn Trãi, Thanh Xuân, Hà Nội');
       expect(user.avatar, 'https://example.com/avatar.jpg');
       expect(user.followerCount, 1200);
       expect(user.followingCount, 85);
@@ -864,6 +870,38 @@ void main() {
       expect(result.user?.username, 'new_handle');
     });
 
+    test('updateAddress updates address via PATCH /api/v1/users/me/address', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.method, 'PATCH');
+        expect(request.url.path, '/api/v1/users/me/address');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['address'], '123 Nguyen Trai, Thanh Xuan, Hanoi');
+        return http.Response(
+          '''{
+            "success": true,
+            "statusCode": 200,
+            "data": {
+              "id": "user-1",
+              "profile": {
+                "address": "123 Nguyen Trai, Thanh Xuan, Hanoi"
+              }
+            }
+          }''',
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      final service = ApiService(client: mockClient);
+      final result = await service.updateAddress(
+        accessToken: 'valid-jwt-token',
+        address: '123 Nguyen Trai, Thanh Xuan, Hanoi',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.user?.address, '123 Nguyen Trai, Thanh Xuan, Hanoi');
+    });
+
     test('createUserProfile creates initial profile via POST /api/v1/users/profile', () async {
       final mockClient = MockClient((request) async {
         expect(request.method, 'POST');
@@ -872,6 +910,7 @@ void main() {
         expect(body['displayName'], 'Chef Linh Đan');
         expect(body['username'], 'linhdan');
         expect(body['gender'], 'FEMALE');
+        expect(body['address'], '123 Nguyen Trai, Thanh Xuan, Hanoi');
         return http.Response(
           '''{
             "success": true,
@@ -881,7 +920,8 @@ void main() {
               "username": "linhdan",
               "profile": {
                 "displayName": "Chef Linh Đan",
-                "gender": "FEMALE"
+                "gender": "FEMALE",
+                "address": "123 Nguyen Trai, Thanh Xuan, Hanoi"
               }
             }
           }''',
@@ -896,12 +936,14 @@ void main() {
         displayName: 'Chef Linh Đan',
         username: 'linhdan',
         gender: 'FEMALE',
+        address: '123 Nguyen Trai, Thanh Xuan, Hanoi',
       );
 
       expect(result.isSuccess, isTrue);
       expect(result.statusCode, 201);
       expect(result.user?.fullName, 'Chef Linh Đan');
       expect(result.user?.username, 'linhdan');
+      expect(result.user?.address, '123 Nguyen Trai, Thanh Xuan, Hanoi');
     });
 
     test('uploadAvatar uploads image bytes via multipart request and sets proper contentType for webp', () async {

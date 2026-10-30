@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cookconnect/core/network/api_service.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
 import 'package:cookconnect/features/recipe/data/models/recipe.dart';
 import 'package:cookconnect/features/recipe/data/models/video_segment.dart';
@@ -58,6 +59,8 @@ class _RecipePostDetailsScreenState extends State<RecipePostDetailsScreen> {
   bool _saveToDevice = true;
 
   bool _isPublishing = false;
+  String _publishStatus = 'Đang xử lý & đăng tải công thức...';
+  double? _publishProgress;
 
   final List<String> _quickHashtags = [
     '#CookConnect',
@@ -382,104 +385,352 @@ class _RecipePostDetailsScreenState extends State<RecipePostDetailsScreen> {
       return;
     }
 
-    setState(() => _isPublishing = true);
+    final token = AuthService.instance.tokens?.accessToken;
+    if (token == null || token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng đăng nhập tài khoản trước khi đăng bài!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
-    // Realistic upload pipeline simulation
-    await Future.delayed(const Duration(milliseconds: 1200));
+    setState(() {
+      _isPublishing = true;
+      _publishStatus = 'Đang chuẩn bị dữ liệu...';
+      _publishProgress = null;
+    });
 
-    final user = AuthService.instance.currentUser;
-    final chefName = user?.fullName.isNotEmpty == true
-        ? user!.fullName
-        : 'Chef Ẩm Thực';
-    final chefAvatar = user?.avatar ?? '';
+    try {
+      // 1. Resolve cover image URL (upload if local file)
+      String coverUrl =
+          'https://pub-50b1ab619efd4084959e011fe2e5a273.r2.dev/thumbnails/video_1.jpg';
+      if (_selectedCoverPath != null && _selectedCoverPath!.isNotEmpty) {
+        if (_selectedCoverPath!.startsWith('http')) {
+          coverUrl = _selectedCoverPath!;
+        } else {
+          final coverFile = File(_selectedCoverPath!);
+          if (coverFile.existsSync()) {
+            try {
+              setState(() => _publishStatus = 'Đang tải ảnh bìa lên...');
+              final bytes = await coverFile.readAsBytes();
+              final uploaded = await ApiService.instance.post.uploadMedia(
+                fileBytes: bytes,
+                fileName: coverFile.uri.pathSegments.last,
+                type: 'IMAGE',
+                token: token,
+              );
+              if (uploaded != null && uploaded.isNotEmpty) {
+                coverUrl = uploaded;
+              }
+            } catch (e) {
+              debugPrint('Cover image upload error, using fallback: $e');
+            }
+          }
+        }
+      }
 
-    final tags = _extractHashtags(_descController.text);
-    final fallbackImage =
-        'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop&q=80';
+      // 2. Resolve video URL & mediaId via Cloudflare R2 Multipart Upload (Quy trình chuẩn 4 bước)
+      String videoUrl =
+          'https://pub-50b1ab619efd4084959e011fe2e5a273.r2.dev/videos/video_1.mp4';
+      String? mediaId;
 
-    final newRecipe = Recipe(
-      id: 'user_rec_${DateTime.now().millisecondsSinceEpoch}',
-      title: title,
-      category: widget.category,
-      imageUrl: _selectedCoverPath ?? fallbackImage,
-      chefName: chefName,
-      chefAvatar: chefAvatar,
-      rating: 5.0,
-      reviewsCount: 1,
-      cookTimeMinutes: widget.cookTimeMinutes,
-      difficulty: widget.difficulty,
-      calories: widget.calories,
-      servings: widget.servings,
-      tags: tags,
-      ingredients: List.from(widget.ingredients),
-      steps: List.from(widget.steps),
-      isFavorite: false,
-      isSaved: true,
-      lastViewedAt: DateTime.now(),
-      cookedCount: 0,
-    );
+      if (widget.videoPath != null && widget.videoPath!.isNotEmpty) {
+        if (widget.videoPath!.startsWith('http')) {
+          videoUrl = widget.videoPath!;
+        } else if (!widget.isPresetVideo) {
+          final videoFile = File(widget.videoPath!);
+          if (videoFile.existsSync()) {
+            setState(() {
+              _publishStatus = 'Đang chuẩn bị tải video lên Cloudflare R2...';
+              _publishProgress = 0.05;
+            });
 
-    RecipeDataService.instance.addRecipe(newRecipe);
+            // Thực hiện quy trình multipart upload:
+            // Bước 1: POST /api/v1/media/videos/multipart-initiate
+            // Bước 2: Tải binary từng chunk lên các presigned URLs của R2 (PUT)
+            // Bước 3: POST /api/v1/media/videos/multipart-complete
+            final completeRes = await ApiService.instance.post.uploadVideoMultipart(
+              videoFile: videoFile,
+              token: token,
+              onProgress: (progress, status) {
+                if (mounted) {
+                  setState(() {
+                    _publishProgress = progress;
+                    _publishStatus = status;
+                  });
+                }
+              },
+            );
 
-    if (!mounted) return;
-    setState(() => _isPublishing = false);
+            // Bước 4: Lấy url và mediaId thật từ Bước 3
+            videoUrl = completeRes.url;
+            mediaId = completeRes.id;
+          }
+        }
+      }
 
-    showDialog(
+      // 3. Map ingredients to API DTO
+      final ingredientDtos = widget.ingredients.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final item = entry.value;
+        final rawNum = item.amount.replaceAll(RegExp(r'[^0-9.]'), '');
+        final parsedAmount = num.tryParse(rawNum);
+        return CreatePostIngredientDto(
+          name: item.name,
+          amount: parsedAmount,
+          unit: item.unit?.isNotEmpty == true ? item.unit : null,
+          group: 'Nguyên liệu chính',
+          sortOrder: idx,
+          catalogIngredientId: item.productId,
+        );
+      }).toList();
+
+      // 4. Map steps to API DTO
+      final stepDtos = widget.steps.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final s = entry.value;
+        return CreateRecipeStepDto(
+          stepNumber: idx + 1,
+          title: s.title,
+          instruction: s.description.isNotEmpty ? s.description : s.title,
+          timestampSeconds: s.durationMinutes != null ? (s.durationMinutes! * 60) : null,
+          imageUrl: null,
+        );
+      }).toList();
+
+      // 5. Map difficulty & visibility
+      String mappedDifficulty = 'MEDIUM';
+      switch (widget.difficulty.toLowerCase()) {
+        case 'dễ':
+          mappedDifficulty = 'EASY';
+          break;
+        case 'khó':
+          mappedDifficulty = 'HARD';
+          break;
+        default:
+          mappedDifficulty = 'MEDIUM';
+      }
+
+      String mappedVisibility = 'PUBLIC';
+      switch (_visibility) {
+        case 'Người theo dõi':
+          mappedVisibility = 'FOLLOWERS_ONLY';
+          break;
+        case 'Riêng tư':
+          mappedVisibility = 'PRIVATE';
+          break;
+        default:
+          mappedVisibility = 'PUBLIC';
+      }
+
+      final rawTags = _extractHashtags(_descController.text);
+      final cleanTags = rawTags
+          .map((t) => t.replaceAll('#', '').trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+
+      // 6. Build CreatePostDto
+      final dto = CreatePostDto(
+        title: title,
+        caption: _descController.text.trim().isNotEmpty ? _descController.text.trim() : null,
+        videoUrl: videoUrl,
+        mediaId: mediaId,
+        thumbnailUrl: coverUrl,
+        duration: widget.cookTimeMinutes > 0 ? (widget.cookTimeMinutes * 60) : 45,
+        visibility: mappedVisibility,
+        allowComments: _allowComments,
+        allowDuet: false,
+        tags: cleanTags.isNotEmpty ? cleanTags : ['CookConnect', 'MonNgon'],
+        ingredients: ingredientDtos,
+        recipe: CreateRecipeDto(
+          cookTimeMinutes: widget.cookTimeMinutes,
+          servings: widget.servings,
+          difficulty: mappedDifficulty,
+          calories: widget.calories,
+          steps: stepDtos.isNotEmpty ? stepDtos : null,
+        ),
+      );
+
+      // 7. Call real backend API (Bước 4)
+      setState(() {
+        _publishStatus = 'Đang hoàn tất đăng bài viết...';
+        _publishProgress = null;
+      });
+      final createdPost = await ApiService.instance.post.createPost(
+        dto: dto,
+        token: token,
+      );
+
+      // Clear feed cache so the newly created post shows up in feed immediately
+      await FeedCacheService.instance.clearCache();
+
+      // Also persist to local RecipeDataService so offline/local screens sync
+      final user = AuthService.instance.currentUser;
+      final newRecipe = Recipe(
+        id: createdPost.postId,
+        title: title,
+        category: widget.category,
+        imageUrl: coverUrl,
+        chefName: user?.fullName.isNotEmpty == true ? user!.fullName : 'Chef Ẩm Thực',
+        chefAvatar: user?.avatar ?? '',
+        rating: 5.0,
+        reviewsCount: 1,
+        cookTimeMinutes: widget.cookTimeMinutes,
+        difficulty: widget.difficulty,
+        calories: widget.calories,
+        servings: widget.servings,
+        tags: rawTags,
+        ingredients: List.from(widget.ingredients),
+        steps: List.from(widget.steps),
+        isFavorite: false,
+        isSaved: true,
+        lastViewedAt: DateTime.now(),
+        cookedCount: 0,
+      );
+      RecipeDataService.instance.addRecipe(newRecipe);
+
+      if (!mounted) return;
+      setState(() => _isPublishing = false);
+
+      _showSuccessPublishDialog(newRecipe);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isPublishing = false);
+      String errorMsg = e.toString();
+      if (e is ApiException) {
+        errorMsg = e.message;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Lỗi đăng bài: $errorMsg')),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  void _showSuccessPublishDialog(Recipe newRecipe) {
+    showGeneralDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_circle,
-                color: Colors.green,
-                size: 50,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Đăng tải thành công! 🎉',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Món "${newRecipe.title}" đã được chia sẻ đến cộng đồng CookConnect!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-            ),
-          ],
+      barrierLabel: 'success',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 350),
+      transitionBuilder: (ctx, anim, _, child) => FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+          child: child,
         ),
-        actions: [
-          Center(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF4D30),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
+      ),
+      pageBuilder: (ctx, _, __) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: MediaQuery.of(ctx).size.width * 0.82,
+            constraints: const BoxConstraints(maxWidth: 360),
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 12),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.elasticOut,
+                  builder: (_, v, child) =>
+                      Transform.scale(scale: v, child: child),
+                  child: Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF66D17A), Color(0xFF2EAE4F)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.35),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.check_rounded,
+                        color: Colors.white, size: 54),
+                  ),
                 ),
-              ),
-              onPressed: () {
-                Navigator.pop(ctx); // Close dialog
-                Navigator.pop(context); // Pop details screen
-                widget.onPublished?.call();
-              },
-              child: const Text('Xem trên Trang Chủ'),
+                const SizedBox(height: 22),
+                const Text(
+                  'Đăng bài thành công!',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 21,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Món "${newRecipe.title}" đã được chia sẻ đến cộng đồng.',
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF4D30),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx); // Close dialog
+                      Navigator.pop(context); // Pop details screen
+                      widget.onPublished?.call();
+                    },
+                    child: const Text(
+                      'Xem trên Trang Chủ',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -632,19 +883,43 @@ class _RecipePostDetailsScreenState extends State<RecipePostDetailsScreen> {
 
           if (_isPublishing)
             Container(
-              color: Colors.black38,
-              child: const Center(
+              color: Colors.black54,
+              child: Center(
                 child: Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: Padding(
-                    padding: EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28.0,
+                      vertical: 24.0,
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
+                        if (_publishProgress != null) ...[
+                          CircularProgressIndicator(
+                            value: _publishProgress,
+                            strokeWidth: 4,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${(_publishProgress! * 100).toInt()}%',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ] else
+                          const CircularProgressIndicator(strokeWidth: 4),
+                        const SizedBox(height: 16),
                         Text(
-                          'Đang xử lý & đăng tải công thức...',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          _publishStatus,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),

@@ -3,12 +3,24 @@ class Ingredient {
   final String name;
   final String amount;
   bool isChecked;
+  final String? productId;
+  final String? productVariantId;
+  final String? imageUrl;
+  final num? price;
+  final String? unit;
+  final String? supplierId;
 
   Ingredient({
     required this.id,
     required this.name,
     required this.amount,
     this.isChecked = false,
+    this.productId,
+    this.productVariantId,
+    this.imageUrl,
+    this.price,
+    this.unit,
+    this.supplierId,
   });
 
   Ingredient copyWith({
@@ -16,12 +28,24 @@ class Ingredient {
     String? name,
     String? amount,
     bool? isChecked,
+    String? productId,
+    String? productVariantId,
+    String? imageUrl,
+    num? price,
+    String? unit,
+    String? supplierId,
   }) {
     return Ingredient(
       id: id ?? this.id,
       name: name ?? this.name,
       amount: amount ?? this.amount,
       isChecked: isChecked ?? this.isChecked,
+      productId: productId ?? this.productId,
+      productVariantId: productVariantId ?? this.productVariantId,
+      imageUrl: imageUrl ?? this.imageUrl,
+      price: price ?? this.price,
+      unit: unit ?? this.unit,
+      supplierId: supplierId ?? this.supplierId,
     );
   }
 }
@@ -154,6 +178,18 @@ class ShoppingItem {
   final String amount;
   final String recipeSource;
   bool isCompleted;
+  final String? imageUrl;
+  final num? price;
+  final String? unit;
+  final String? productId;
+  final String? currency;
+  final String? supplierId;
+  final String? category;
+
+  /// Liên kết ngược tới bài Post (video công thức) đã thêm nguyên liệu này.
+  final String? sourcePostId;
+  final String? sourceThumbnailUrl;
+  int quantity;
 
   ShoppingItem({
     required this.id,
@@ -161,5 +197,63 @@ class ShoppingItem {
     required this.amount,
     required this.recipeSource,
     this.isCompleted = false,
+    this.imageUrl,
+    this.price,
+    this.unit,
+    this.productId,
+    this.currency,
+    this.supplierId,
+    this.category,
+    this.sourcePostId,
+    this.sourceThumbnailUrl,
+    this.quantity = 1,
   });
+
+  ShoppingItem copyWith({
+    String? id,
+    String? name,
+    String? amount,
+    String? recipeSource,
+    bool? isCompleted,
+    String? imageUrl,
+    num? price,
+    String? unit,
+    String? productId,
+    String? currency,
+    String? supplierId,
+    String? category,
+    String? sourcePostId,
+    String? sourceThumbnailUrl,
+    int? quantity,
+  }) {
+    return ShoppingItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      amount: amount ?? this.amount,
+      recipeSource: recipeSource ?? this.recipeSource,
+      isCompleted: isCompleted ?? this.isCompleted,
+      imageUrl: imageUrl ?? this.imageUrl,
+      price: price ?? this.price,
+      unit: unit ?? this.unit,
+      productId: productId ?? this.productId,
+      currency: currency ?? this.currency,
+      supplierId: supplierId ?? this.supplierId,
+      category: category ?? this.category,
+      sourcePostId: sourcePostId ?? this.sourcePostId,
+      sourceThumbnailUrl: sourceThumbnailUrl ?? this.sourceThumbnailUrl,
+      quantity: quantity ?? this.quantity,
+    );
+  }
+
+  String get formattedPrice {
+    if (price == null) return '';
+    final cur = currency ?? 'VND';
+    final curSymbol = cur == 'VND' ? 'đ' : cur;
+    final total = (price! * quantity).toInt();
+    final formatted = total.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+    return '$formatted $curSymbol';
+  }
 }

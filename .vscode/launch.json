@@ -1,0 +1,59 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Supplier App (Debug)",
+      "cwd": "apps/supplier",
+      "request": "launch",
+      "type": "dart",
+      "program": "apps/supplier/lib/main.dart",
+      "toolArgs": [
+        "--dart-define-from-file=${workspaceFolder}/apps/supplier/.env"
+      ]
+    },
+    {
+      "name": "Supplier App (Profile)",
+      "cwd": "apps/supplier",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "apps/supplier/lib/main.dart",
+      "toolArgs": [
+        "--dart-define-from-file=${workspaceFolder}/apps/supplier/.env"
+      ]
+    },
+    {
+      "name": "Supplier App (Release)",
+      "cwd": "apps/supplier",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "apps/supplier/lib/main.dart",
+      "toolArgs": [
+        "--dart-define-from-file=${workspaceFolder}/apps/supplier/.env"
+      ]
+    },
+    {
+      "name": "Customer App (Debug)",
+      "cwd": "apps/customer",
+      "request": "launch",
+      "type": "dart",
+      "program": "apps/customer/lib/main.dart",
+      "toolArgs": [
+        "--dart-define-from-file=${workspaceFolder}/apps/customer/.env"
+      ]
+    },
+    {
+      "name": "Customer App (Release)",
+      "cwd": "apps/customer",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "apps/customer/lib/main.dart",
+      "toolArgs": [
+        "--dart-define-from-file=${workspaceFolder}/apps/customer/.env"
+      ]
+    }
+  ]
+}
+

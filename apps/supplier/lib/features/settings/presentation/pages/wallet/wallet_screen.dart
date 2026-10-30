@@ -391,31 +391,37 @@ class _WalletScreenState extends State<WalletScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Iconsax.wallet_3,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
-                    child: const Icon(
-                      Iconsax.wallet_3,
-                      color: Colors.white,
-                      size: 18,
+                    const SizedBox(width: 8),
+                    const Flexible(
+                      child: Text(
+                        'Ví CookConnect Seller',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Ví CookConnect Seller',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -574,14 +580,18 @@ class _WalletScreenState extends State<WalletScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Doanh thu (${stats['label']})',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[600],
+              Expanded(
+                child: Text(
+                  'Doanh thu (${stats['label']})',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[600],
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -748,51 +758,54 @@ class _WalletScreenState extends State<WalletScreen> {
         border: Border.all(color: Colors.grey.shade200),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: _recentTransactions.map((tx) {
-          final isPositive = tx['isPositive'] as bool;
-          return Column(
-            children: [
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isPositive ? Colors.green.shade50 : Colors.red.shade50,
-                    shape: BoxShape.circle,
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
+          children: _recentTransactions.map((tx) {
+            final isPositive = tx['isPositive'] as bool;
+            return Column(
+              children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isPositive ? Colors.green.shade50 : Colors.red.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isPositive ? Iconsax.arrow_down_2 : Iconsax.arrow_up_1,
+                      color: isPositive ? Colors.green : Colors.red,
+                      size: 18,
+                    ),
                   ),
-                  child: Icon(
-                    isPositive ? Iconsax.arrow_down_2 : Iconsax.arrow_up_1,
-                    color: isPositive ? Colors.green : Colors.red,
-                    size: 18,
+                  title: Text(
+                    tx['title'] as String,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  subtitle: Text(
+                    tx['time'] as String,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                  trailing: Text(
+                    _isBalanceVisible ? (tx['amount'] as String) : '••••••',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.bold,
+                      color: isPositive ? const Color(0xFF2E7D32) : Colors.red[700],
+                    ),
                   ),
                 ),
-                title: Text(
-                  tx['title'] as String,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                subtitle: Text(
-                  tx['time'] as String,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                ),
-                trailing: Text(
-                  _isBalanceVisible ? (tx['amount'] as String) : '••••••',
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.bold,
-                    color: isPositive ? const Color(0xFF2E7D32) : Colors.red[700],
-                  ),
-                ),
-              ),
-              if (tx != _recentTransactions.last)
-                Divider(height: 1, indent: 64, color: Colors.grey.shade100),
-            ],
-          );
-        }).toList(),
+                if (tx != _recentTransactions.last)
+                  Divider(height: 1, indent: 64, color: Colors.grey.shade100),
+              ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }

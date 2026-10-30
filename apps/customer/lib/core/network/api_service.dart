@@ -1,6 +1,10 @@
+import 'package:cookconnect/features/recipe/data/models/post_item.dart';
+import 'package:cookconnect/features/recipe/data/models/create_post_dto.dart';
 import 'package:cookconnect/features/recipe/data/services/post_api_service.dart';
 
 export 'package:cookconnect/features/recipe/data/models/post_item.dart';
+export 'package:cookconnect/features/recipe/data/models/create_post_dto.dart';
+export 'package:cookconnect/features/recipe/data/models/multipart_upload_models.dart';
 export 'package:cookconnect/features/recipe/data/services/post_api_service.dart';
 export 'package:cookconnect/features/recipe/data/services/feed_cache_service.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +13,8 @@ import 'package:cookconnect/features/auth/data/models/auth_result.dart';
 import 'package:cookconnect/features/auth/data/models/otp_result.dart';
 import 'package:cookconnect/features/auth/data/services/auth_api_service.dart';
 import 'package:cookconnect/features/profile/data/services/user_api_service.dart';
+import 'package:cookconnect/features/recipe/data/models/video_watch_event.dart';
+import 'package:cookconnect/features/recipe/data/services/video_analytics_service.dart';
 
 // Export all models and services for clean centralized access
 export 'package:cookconnect/core/network/api_client.dart';
@@ -19,6 +25,10 @@ export 'package:cookconnect/features/auth/data/models/auth_user.dart';
 export 'package:cookconnect/features/auth/data/models/otp_result.dart';
 export 'package:cookconnect/features/auth/data/services/auth_api_service.dart';
 export 'package:cookconnect/features/profile/data/services/user_api_service.dart';
+export 'package:cookconnect/features/recipe/data/models/video_watch_event.dart';
+export 'package:cookconnect/features/recipe/data/services/video_analytics_service.dart';
+export 'package:cookconnect/features/recipe/data/services/video_watch_tracker.dart';
+export 'package:cookconnect/features/recipe/data/services/author_profile_service.dart';
 
 /// Facade ApiService preserving backward compatibility and coordinating AuthApiService + UserApiService
 class ApiService {
@@ -40,17 +50,20 @@ class ApiService {
   final AuthApiService _authService;
   final UserApiService _userService;
   final PostApiService _postService;
+  final VideoAnalyticsService _videoAnalyticsService;
 
   ApiService({http.Client? client, ApiClient? apiClient})
       : _client = apiClient ?? ApiClient(client: client),
         _authService = AuthApiService(apiClient: apiClient ?? ApiClient(client: client)),
         _userService = UserApiService(apiClient: apiClient ?? ApiClient(client: client)),
-        _postService = PostApiService(apiClient: apiClient ?? ApiClient(client: client));
+        _postService = PostApiService(apiClient: apiClient ?? ApiClient(client: client)),
+        _videoAnalyticsService = VideoAnalyticsService(client: apiClient ?? ApiClient(client: client));
 
   ApiClient get apiClient => _client;
   AuthApiService get auth => _authService;
   UserApiService get user => _userService;
   PostApiService get post => _postService;
+  VideoAnalyticsService get videoAnalytics => _videoAnalyticsService;
 
   // Forwarding methods to AuthApiService & UserApiService
   Future<HealthCheckResult> checkHealth() => _userService.checkHealth();
@@ -169,7 +182,7 @@ class ApiService {
         bio: bio,
       );
 
-  /// 4. Cập nhật vị trí / địa chỉ
+  /// 4. Cập nhật vị trí
   Future<AuthResult> updateLocation({
     required String accessToken,
     required String location,
@@ -177,6 +190,16 @@ class ApiService {
       _userService.updateLocation(
         accessToken: accessToken,
         location: location,
+      );
+
+  /// Cập nhật địa chỉ cư trú
+  Future<AuthResult> updateAddress({
+    required String accessToken,
+    required String address,
+  }) =>
+      _userService.updateAddress(
+        accessToken: accessToken,
+        address: address,
       );
 
   /// 5. Cập nhật website
@@ -221,6 +244,7 @@ class ApiService {
     String? coverImage,
     String? website,
     String? location,
+    String? address,
   }) =>
       _userService.createUserProfile(
         accessToken: accessToken,
@@ -233,6 +257,7 @@ class ApiService {
         coverImage: coverImage,
         website: website,
         location: location,
+        address: address,
       );
 
   Future<AuthResult> updateUserProfile({
@@ -245,6 +270,7 @@ class ApiService {
     String? bio,
     String? avatar,
     String? location,
+    String? address,
     String? website,
     String? coverImage,
   }) =>
@@ -258,6 +284,7 @@ class ApiService {
         bio: bio,
         avatar: avatar,
         location: location,
+        address: address,
         website: website,
         coverImage: coverImage,
       );
@@ -269,4 +296,13 @@ class ApiService {
 
   Future<AuthResult> refreshToken(String refreshToken) =>
       _authService.refreshToken(refreshToken);
+
+  void recordVideoWatch(VideoWatchEvent event) =>
+      _videoAnalyticsService.recordWatchEvent(event);
+
+  Future<PostItem> createPost({
+    required CreatePostDto dto,
+    String? token,
+  }) =>
+      _postService.createPost(dto: dto, token: token);
 }

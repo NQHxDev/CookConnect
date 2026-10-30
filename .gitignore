@@ -12,6 +12,7 @@
 .swiftpm/
 migrate_working_dir/
 *.metadata
+.pnpm-store/
 
 # IntelliJ related
 *.iml
@@ -119,6 +120,7 @@ coverage/
 # Omni AI related
 .omni/
 .agent/
+NoteDevelop.txt
 
 # Environment files
 .env

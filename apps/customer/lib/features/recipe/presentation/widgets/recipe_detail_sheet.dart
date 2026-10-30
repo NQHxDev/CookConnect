@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cookconnect/features/recipe/data/models/recipe.dart';
+import 'package:cookconnect/features/recipe/data/services/recipe_data_service.dart';
 
 class RecipeDetailSheet extends StatefulWidget {
   final Recipe recipe;
@@ -74,32 +75,19 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet>
         name: ing.name,
         amount: ing.amount,
         recipeSource: _currentRecipe.title,
+        productId: ing.productId,
+        imageUrl: ing.imageUrl,
+        price: ing.price,
+        unit: ing.unit,
+        supplierId: ing.supplierId,
       );
     }).toList();
 
     if (widget.onAddToShoppingList != null) {
       widget.onAddToShoppingList!(items);
+    } else {
+      RecipeDataService.instance.addShoppingItems(items);
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Iconsax.tick_circle5, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Đã thêm ${_ingredients.length} nguyên liệu vào Danh sách đi chợ!',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.green[700],
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
   }
 
   @override

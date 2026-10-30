@@ -151,28 +151,28 @@ class WelcomeAuthScreen extends StatelessWidget {
               const Spacer(),
 
               // Footer: Register new store link
-              Center(
-                child: GestureDetector(
-                  onTap: () => _navigateToRegister(context),
-                  child: RichText(
-                    text: const TextSpan(
-                      text: 'Chưa có tài khoản gian hàng? ',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13.5,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: 'Đăng ký ngay',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Chưa có tài khoản gian hàng? ',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13.5,
                     ),
                   ),
-                ),
+                  GestureDetector(
+                    onTap: () => _navigateToRegister(context),
+                    child: const Text(
+                      'Đăng ký ngay',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Text(

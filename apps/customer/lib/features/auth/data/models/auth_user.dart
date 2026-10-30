@@ -13,6 +13,7 @@ class AuthUser {
   final String? coverImage;
   final String? website;
   final String? location;
+  final String? address;
   final List<String> roles;
   final String? status;
   final bool isEmailVerified;
@@ -36,6 +37,7 @@ class AuthUser {
     this.coverImage,
     this.website,
     this.location,
+    this.address,
     this.roles = const ['USER'],
     this.status,
     this.isEmailVerified = false,
@@ -133,6 +135,7 @@ class AuthUser {
     final coverImage = json['coverImage']?.toString() ?? profile?['coverImage']?.toString();
     final website = json['website']?.toString() ?? profile?['website']?.toString();
     final location = json['location']?.toString() ?? profile?['location']?.toString();
+    final address = json['address']?.toString() ?? profile?['address']?.toString();
 
     // 9. Roles
     final roles = (json['roles'] as List<dynamic>?)
@@ -179,6 +182,7 @@ class AuthUser {
       coverImage: coverImage,
       website: website,
       location: location,
+      address: address,
       roles: roles,
       status: json['status']?.toString(),
       isEmailVerified: json['isEmailVerified'] == true,
@@ -205,6 +209,7 @@ class AuthUser {
     if (coverImage != null) 'coverImage': coverImage,
     if (website != null) 'website': website,
     if (location != null) 'location': location,
+    if (address != null) 'address': address,
     'roles': roles,
     'status': status,
     'isEmailVerified': isEmailVerified,
@@ -229,6 +234,7 @@ class AuthUser {
     String? coverImage,
     String? website,
     String? location,
+    String? address,
     List<String>? roles,
     String? status,
     bool? isEmailVerified,
@@ -252,6 +258,7 @@ class AuthUser {
       coverImage: coverImage ?? this.coverImage,
       website: website ?? this.website,
       location: location ?? this.location,
+      address: address ?? this.address,
       roles: roles ?? this.roles,
       status: status ?? this.status,
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,

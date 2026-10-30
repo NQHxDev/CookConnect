@@ -154,4 +154,58 @@ void main() {
     expect(find.text('5/5 ảnh tối thiểu'), findsOneWidget);
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
   });
+
+  testWidgets('Selecting 5 images at once updates list atomically without dropping images', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    List<String> images = [];
+
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) {
+          return MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: ProductImagesUploader(
+                  images: images,
+                  onImagesChanged: (updated) {
+                    setState(() {
+                      images = updated;
+                    });
+                  },
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('0/5 ảnh tối thiểu'), findsOneWidget);
+
+    // Simulate batch pick of 5 images at once
+    final uploaderState = tester.state(find.byType(ProductImagesUploader)) as dynamic;
+    uploaderState.addImagesForTesting([
+      'https://example.com/1.jpg',
+      'https://example.com/2.jpg',
+      'https://example.com/3.jpg',
+      'https://example.com/4.jpg',
+      'https://example.com/5.jpg',
+    ]);
+    await tester.pumpAndSettle();
+
+    // Verify all 5 images are kept, none dropped, and sub-gallery displays properly
+    expect(images.length, 5);
+    expect(find.text('5/5 ảnh tối thiểu'), findsOneWidget);
+    expect(find.text('#2'), findsOneWidget);
+    expect(find.text('#3'), findsOneWidget);
+    expect(find.text('#4'), findsOneWidget);
+    expect(find.text('#5'), findsOneWidget);
+  });
 }

@@ -1,3 +1,11 @@
+import 'package:flutter/cupertino.dart'
+    show
+        CupertinoDatePicker,
+        CupertinoDatePickerMode,
+        DatePickerDateOrder,
+        CupertinoTheme,
+        CupertinoThemeData,
+        CupertinoTextThemeData;
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cookconnect/core/network/api_service.dart';
@@ -25,6 +33,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   late TextEditingController _nameController;
   late TextEditingController _usernameController;
+  late TextEditingController _addressController;
   late TextEditingController _bioController;
 
   String _selectedGender = 'MALE';
@@ -49,6 +58,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
     _usernameController = TextEditingController(text: initialUsername);
 
+    _addressController = TextEditingController(text: user?.address ?? '');
+
     _bioController = TextEditingController(text: user?.bio ?? '');
 
     if (user?.gender != null && user!.gender!.isNotEmpty) {
@@ -66,40 +77,272 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   void dispose() {
     _nameController.dispose();
     _usernameController.dispose();
+    _addressController.dispose();
     _bioController.dispose();
     super.dispose();
   }
 
+  int _calculateAge(DateTime birthDate) {
+    final now = DateTime.now();
+    int age = now.year - birthDate.year;
+    if (now.month < birthDate.month ||
+        (now.month == birthDate.month && now.day < birthDate.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  String _formatDisplayDate(DateTime dt) {
+    return 'Ngày ${dt.day.toString().padLeft(2, '0')} tháng ${dt.month.toString().padLeft(2, '0')}, ${dt.year}';
+  }
+
   Future<void> _pickDateOfBirth() async {
     final now = DateTime.now();
-    final initialDate = _selectedDateOfBirth ?? DateTime(2000, 1, 1);
+    final maxDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    final minDate = DateTime(1930, 1, 1);
 
-    final picked = await showDatePicker(
+    DateTime tempDate = _selectedDateOfBirth ?? DateTime(2000, 1, 1);
+    if (tempDate.isAfter(maxDate)) {
+      tempDate = DateTime(now.year, now.month, now.day);
+    }
+    if (tempDate.isBefore(minDate)) {
+      tempDate = minDate;
+    }
+
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    await showModalBottomSheet<void>(
       context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(1930),
-      lastDate: now,
-      helpText: 'Chọn ngày sinh của bạn',
-      cancelText: 'Huỷ',
-      confirmText: 'Xác nhận',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          child: child!,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final age = _calculateAge(tempDate);
+
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 20,
+                    offset: Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Drag handle
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4.5,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Header row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Iconsax.calendar_1,
+                                  size: 18,
+                                  color: primaryColor,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Chọn ngày sinh',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                          InkWell(
+                            onTap: () => Navigator.of(bottomSheetContext).pop(),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Live selected date card preview
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: primaryColor.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: primaryColor.withValues(alpha: 0.12),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Iconsax.cake,
+                                color: primaryColor,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _formatDisplayDate(tempDate),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    age >= 0 ? '$age tuổi' : 'Chưa hợp lệ',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: primaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Cupertino wheel date picker
+                      SizedBox(
+                        height: 210,
+                        child: CupertinoTheme(
+                          data: const CupertinoThemeData(
+                            textTheme: CupertinoTextThemeData(
+                              dateTimePickerTextStyle: TextStyle(
+                                fontFamily: 'TikTokSans',
+                                fontSize: 19,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          child: CupertinoDatePicker(
+                            mode: CupertinoDatePickerMode.date,
+                            dateOrder: DatePickerDateOrder.dmy,
+                            initialDateTime: tempDate,
+                            minimumDate: minDate,
+                            maximumDate: maxDate,
+                            onDateTimeChanged: (DateTime newDate) {
+                              setModalState(() {
+                                tempDate = newDate;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Confirm button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedDateOfBirth = tempDate;
+                              _dobError = null;
+                            });
+                            Navigator.of(bottomSheetContext).pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Iconsax.tick_circle, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Xác nhận',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
-
-    if (picked != null) {
-      setState(() {
-        _selectedDateOfBirth = picked;
-        _dobError = null;
-      });
-    }
   }
 
   String _formatDate(DateTime dt) {
@@ -133,6 +376,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     final fullName = _nameController.text.trim();
     final username = _usernameController.text.trim().toLowerCase();
+    final address = _addressController.text.trim();
     final bio = _bioController.text.trim();
     final dobIso = _formatIsoDate(_selectedDateOfBirth!);
 
@@ -148,6 +392,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           gender: _selectedGender,
           dateOfBirth: dobIso,
           bio: bio.isNotEmpty ? bio : null,
+          address: address,
         );
         if (!createResult.isSuccess) {
           await apiService.updateUserProfile(
@@ -157,6 +402,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             gender: _selectedGender,
             dateOfBirth: dobIso,
             bio: bio.isNotEmpty ? bio : null,
+            address: address,
           );
         }
       }
@@ -171,6 +417,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       gender: _selectedGender,
       dateOfBirth: dobIso,
       bio: bio,
+      address: address,
     );
 
     if (!mounted) return;
@@ -369,52 +616,124 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   InkWell(
                     onTap: _pickDateOfBirth,
                     borderRadius: BorderRadius.circular(14),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
+                        horizontal: 14,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
+                        color: _selectedDateOfBirth != null
+                            ? primaryColor.withValues(alpha: 0.04)
+                            : const Color(0xFFF9FAFB),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: _dobError != null
                               ? Colors.red.shade400
-                              : Colors.grey.shade300,
-                          width: _dobError != null ? 1.5 : 1,
+                              : _selectedDateOfBirth != null
+                                  ? primaryColor.withValues(alpha: 0.5)
+                                  : Colors.grey.shade300,
+                          width: _dobError != null || _selectedDateOfBirth != null ? 1.5 : 1,
                         ),
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            Iconsax.calendar_1,
-                            size: 20,
-                            color: _dobError != null
-                                ? Colors.red.shade400
-                                : Colors.grey[600],
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: _selectedDateOfBirth != null
+                                  ? primaryColor.withValues(alpha: 0.12)
+                                  : Colors.grey.shade100,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _selectedDateOfBirth != null
+                                  ? Iconsax.calendar_tick
+                                  : Iconsax.calendar_1,
+                              size: 19,
+                              color: _dobError != null
+                                  ? Colors.red.shade400
+                                  : _selectedDateOfBirth != null
+                                      ? primaryColor
+                                      : Colors.grey[600],
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              _selectedDateOfBirth != null
-                                  ? _formatDate(_selectedDateOfBirth!)
-                                  : 'Chọn ngày sinh của bạn...',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: _selectedDateOfBirth != null
-                                    ? Colors.black87
-                                    : Colors.grey[400],
-                                fontWeight: _selectedDateOfBirth != null
-                                    ? FontWeight.w500
-                                    : FontWeight.normal,
+                            child: _selectedDateOfBirth != null
+                                ? Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _formatDate(_selectedDateOfBirth!),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _formatDisplayDate(_selectedDateOfBirth!),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Text(
+                                    'Chọn ngày sinh của bạn...',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[400],
+                                    ),
+                                  ),
+                          ),
+                          if (_selectedDateOfBirth != null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Iconsax.cake,
+                                    size: 13,
+                                    color: primaryColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${_calculateAge(_selectedDateOfBirth!)} tuổi',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryColor,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          Icon(
-                            Iconsax.arrow_down_1,
-                            size: 16,
-                            color: Colors.grey[500],
-                          ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Iconsax.edit_2,
+                              size: 16,
+                              color: primaryColor,
+                            ),
+                          ] else
+                            Icon(
+                              Iconsax.arrow_down_1,
+                              size: 16,
+                              color: Colors.grey[500],
+                            ),
                         ],
                       ),
                     ),
@@ -431,6 +750,31 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ),
                       ),
                     ),
+                  const SizedBox(height: 16),
+
+                  // Address Field (Required)
+                  _buildFieldLabel('Địa chỉ', isRequired: true),
+                  TextFormField(
+                    controller: _addressController,
+                    textInputAction: TextInputAction.next,
+                    decoration: _buildInputDecoration(
+                      hint: 'Ví dụ: 123 Nguyễn Trãi, Thanh Xuân, Hà Nội',
+                      prefixIcon: Iconsax.location,
+                    ),
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) {
+                        return 'Vui lòng nhập địa chỉ';
+                      }
+                      final trimmed = val.trim();
+                      if (trimmed.length < 3) {
+                        return 'Địa chỉ phải có ít nhất 3 ký tự';
+                      }
+                      if (trimmed.length > 255) {
+                        return 'Địa chỉ tối đa 255 ký tự';
+                      }
+                      return null;
+                    },
+                  ),
                   const SizedBox(height: 16),
 
                   // Bio Field (Optional)

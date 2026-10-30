@@ -128,6 +128,23 @@ class ApiClient {
     }
   }
 
+  /// Performs a raw binary PUT request (e.g. for direct Cloudflare R2 presigned part upload)
+  Future<http.Response> putBinary(
+    String url, {
+    required List<int> bytes,
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) async {
+    final uri = Uri.parse(url);
+    try {
+      return await _client
+          .put(uri, headers: headers, body: bytes)
+          .timeout(timeout ?? const Duration(minutes: 5));
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// Performs a multipart file upload request
   Future<Map<String, dynamic>> uploadMultipart(
     String path, {

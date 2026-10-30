@@ -415,6 +415,23 @@ class UserApiService {
     );
   }
 
+  /// 7. Cập nhật địa chỉ cư trú via `PATCH /api/v1/users/me/address`
+  Future<AuthResult> updateAddress({
+    required String accessToken,
+    required String address,
+  }) async {
+    final bodyMap = <String, dynamic>{
+      'address': address.trim(),
+    };
+
+    return _patchUserMe(
+      path: ApiConfig.userAddressPath,
+      accessToken: accessToken,
+      body: bodyMap,
+      defaultSuccessMessage: 'Cập nhật địa chỉ thành công',
+    );
+  }
+
   /// 8. Đổi Username (Handle) via `PATCH /api/v1/users/me/username`
   Future<AuthResult> updateUsername({
     required String accessToken,
@@ -444,9 +461,11 @@ class UserApiService {
     String? coverImage,
     String? website,
     String? location,
+    String? address,
   }) async {
     final bodyMap = <String, dynamic>{
       'displayName': displayName.trim(),
+      if (address != null && address.isNotEmpty) 'address': address.trim(),
       if (username != null && username.isNotEmpty)
         'username': username.trim().toLowerCase(),
       if (gender != null && gender.isNotEmpty) 'gender': gender,
@@ -509,6 +528,7 @@ class UserApiService {
     String? bio,
     String? avatar,
     String? location,
+    String? address,
     String? website,
     String? coverImage,
   }) async {
@@ -552,6 +572,14 @@ class UserApiService {
       lastResult = await updateLocation(
         accessToken: accessToken,
         location: location,
+      );
+      if (!lastResult.isSuccess) return lastResult;
+    }
+
+    if (address != null && address.isNotEmpty) {
+      lastResult = await updateAddress(
+        accessToken: accessToken,
+        address: address,
       );
       if (!lastResult.isSuccess) return lastResult;
     }

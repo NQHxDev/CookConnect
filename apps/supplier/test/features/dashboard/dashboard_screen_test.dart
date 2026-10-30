@@ -24,7 +24,7 @@ void main() {
     // 1. Verify Store Header & Status
     expect(find.text('Đại Siêu Thị Nguyên Liệu Tươi CookConnect'), findsOneWidget);
     expect(find.text('SUPP-DEMO-01'), findsOneWidget);
-    expect(find.textContaining('Đang mở cửa'), findsOneWidget);
+    expect(find.textContaining('Đang mở cửa'), findsNothing);
 
     // 2. Sensitive Money / Revenue check: Home screen MUST NEVER contain revenue figures
     expect(find.text('Doanh thu hôm nay'), findsNothing);
@@ -60,14 +60,49 @@ void main() {
     expect(find.text('Giao hàng'), findsOneWidget);
     expect(find.text('Kho hàng'), findsOneWidget);
 
-    // 7. Verify Seller Guides
-    expect(find.text('Cẩm nang nhà bán hàng'), findsOneWidget);
+    // 7. Verify Open/Close store status box has been removed from home
+    expect(find.byType(Switch), findsNothing);
+    expect(find.textContaining('Đang mở cửa'), findsNothing);
+    expect(find.textContaining('Tạm ngưng nhận đơn'), findsNothing);
 
-    // 8. Test Open/Close store toggle
-    final switchFinder = find.byType(Switch);
-    expect(switchFinder, findsOneWidget);
-    await tester.tap(switchFinder);
+    // 8. Verify CustomPullToRefresh is rendered
+    expect(find.byType(CustomScrollView), findsOneWidget);
+
+    // 9. Verify Seller Guides (scroll down)
+    final guidesFinder = find.text('Cẩm nang nhà bán hàng');
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -600));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Tạm ngưng nhận đơn'), findsOneWidget);
+    expect(guidesFinder, findsOneWidget);
+  });
+
+  testWidgets('Tapping notification bell icon displays notification sheet without assertion errors',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DashboardScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Tap notification bell icon
+    final notificationBell = find.byTooltip('Thông báo');
+    if (notificationBell.evaluate().isNotEmpty) {
+      await tester.tap(notificationBell);
+    } else {
+      // Find IconButton with notification icon
+      final bellIcon = find.byWidgetPredicate(
+        (widget) => widget is IconButton && widget.onPressed != null,
+      ).first;
+      await tester.tap(bellIcon);
+    }
+    await tester.pumpAndSettle();
+
+    // Verify notification sheet opened
+    expect(find.text('Thông báo vận hành'), findsOneWidget);
+    expect(find.text('3 đơn hàng mới chờ duyệt'), findsOneWidget);
   });
 }

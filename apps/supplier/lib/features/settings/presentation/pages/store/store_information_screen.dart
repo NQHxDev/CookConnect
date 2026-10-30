@@ -260,13 +260,13 @@ class _StoreInformationScreenState extends State<StoreInformationScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        child: SafeArea(
+      builder: (ctx) => Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -364,8 +364,9 @@ class _StoreInformationScreenState extends State<StoreInformationScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showImageUrlDialog() {
     final controller = TextEditingController(text: _logoUrl ?? '');

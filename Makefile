@@ -51,7 +51,7 @@ help:
 customer:
 ifeq ($(FIRST_GOAL),customer)
 	@echo "Running customer $(if $(DEVICE),on device $(DEVICE)...,app...)"
-	cd apps/customer && flutter run $(RUN_DEVICE_FLAG)
+	cd apps/customer && flutter run --dart-define-from-file=.env $(RUN_DEVICE_FLAG)
 endif
 
 # Run app directly for supplier
@@ -59,27 +59,27 @@ endif
 supplier:
 ifeq ($(FIRST_GOAL),supplier)
 	@echo "Running supplier $(if $(DEVICE),on device $(DEVICE)...,app...)"
-	cd apps/supplier && flutter run $(RUN_DEVICE_FLAG)
+	cd apps/supplier && flutter run --dart-define-from-file=.env $(RUN_DEVICE_FLAG)
 endif
 
 # Install APK to device for both apps
 .PHONY: install
 install:
 	@echo "Building & Installing Customer APK (release)..."
-	cd apps/customer && flutter build apk --release
+	cd apps/customer && flutter build apk --release --dart-define-from-file=.env
 	adb install -r apps/customer/build/app/outputs/flutter-apk/app-release.apk
 	@echo "Building & Installing Supplier APK (release)..."
-	cd apps/supplier && flutter build apk --release
+	cd apps/supplier && flutter build apk --release --dart-define-from-file=.env
 	adb install -r apps/supplier/build/app/outputs/flutter-apk/app-release.apk
 	@echo "Successfully installed both apps!"
 
 .PHONY: install-debug
 install-debug:
 	@echo "Building & Installing Customer APK (debug)..."
-	cd apps/customer && flutter build apk --debug
+	cd apps/customer && flutter build apk --debug --dart-define-from-file=.env
 	adb install -r apps/customer/build/app/outputs/flutter-apk/app-debug.apk
 	@echo "Building & Installing Supplier APK (debug)..."
-	cd apps/supplier && flutter build apk --debug
+	cd apps/supplier && flutter build apk --debug --dart-define-from-file=.env
 	adb install -r apps/supplier/build/app/outputs/flutter-apk/app-debug.apk
 	@echo "Successfully installed both debug apps!"
 

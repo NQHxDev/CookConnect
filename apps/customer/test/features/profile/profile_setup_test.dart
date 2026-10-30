@@ -26,8 +26,13 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: ProfileSetupDialog(isFirstTime: true)),
+        MaterialApp(
+          home: Scaffold(
+            body: ProfileSetupDialog(
+              isFirstTime: true,
+              onComplete: () {},
+            ),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -38,6 +43,7 @@ void main() {
       expect(find.text('Tên người dùng'), findsOneWidget);
       expect(find.text('Giới tính'), findsOneWidget);
       expect(find.text('Ngày sinh'), findsOneWidget);
+      expect(find.text('Địa chỉ'), findsOneWidget);
       expect(find.text('Tiểu sử giới thiệu (Bio)'), findsOneWidget);
 
       // Enter full name
@@ -57,6 +63,7 @@ void main() {
       // Verify AuthService updated
       expect(AuthService.instance.currentUser?.fullName, 'Nguyễn Minh Quân');
       expect(AuthService.instance.currentUser?.gender, 'MALE');
+      expect(AuthService.instance.currentUser?.address, '123 Nguyễn Trãi, Thanh Xuân, Hà Nội');
     },
   );
 
@@ -87,14 +94,14 @@ void main() {
   );
 
   testWidgets(
-    'ProfileSetupScreen enforces mandatory fields and validations for name, username and date of birth',
+    'ProfileSetupScreen enforces mandatory fields and validations for name, username, date of birth and address',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      // Set user without date of birth and empty name
+      // Set user without date of birth, address and empty name
       AuthService.instance.setSession(
         user: AuthUser(
           id: 'fresh-user-1',
@@ -102,6 +109,7 @@ void main() {
           fullName: '',
           username: '',
           dateOfBirth: null,
+          address: null,
         ),
         tokens: AuthTokens(accessToken: 'mock-token', refreshToken: 'mock-refresh'),
       );
@@ -127,18 +135,22 @@ void main() {
       expect(find.text('Vui lòng nhập họ và tên'), findsOneWidget);
       expect(find.text('Vui lòng nhập username'), findsOneWidget);
       expect(find.text('Vui lòng chọn ngày sinh của bạn'), findsOneWidget);
+      expect(find.text('Vui lòng nhập địa chỉ'), findsOneWidget);
       expect(completed, isFalse);
 
-      // Enter short name (<2 chars) and short username (<3 chars)
+      // Enter short name (<2 chars), short username (<3 chars) and short address (<3 chars)
       final nameField = find.byType(TextFormField).at(0);
       final usernameField = find.byType(TextFormField).at(1);
+      final addressField = find.byType(TextFormField).at(2);
       await tester.enterText(nameField, 'A');
       await tester.enterText(usernameField, 'ab');
+      await tester.enterText(addressField, '12');
       await tester.tap(find.text('Hoàn tất & Bắt đầu'));
       await tester.pumpAndSettle();
 
       expect(find.text('Họ và tên phải có ít nhất 2 ký tự'), findsOneWidget);
       expect(find.text('Username tối thiểu 3 ký tự'), findsOneWidget);
+      expect(find.text('Địa chỉ phải có ít nhất 3 ký tự'), findsOneWidget);
       expect(completed, isFalse);
 
       // Enter invalid username with spaces/special characters
@@ -150,9 +162,10 @@ void main() {
         findsOneWidget,
       );
 
-      // Enter valid name and username
+      // Enter valid name, username, and address
       await tester.enterText(nameField, 'Trần Minh Tuấn');
       await tester.enterText(usernameField, 'minhtuan_chef');
+      await tester.enterText(addressField, '123 Nguyễn Trãi, Thanh Xuân, Hà Nội');
       await tester.tap(find.text('Hoàn tất & Bắt đầu'));
       await tester.pumpAndSettle();
 
@@ -181,6 +194,10 @@ void main() {
       expect(AuthService.instance.currentUser?.fullName, 'Trần Minh Tuấn');
       expect(AuthService.instance.currentUser?.username, 'minhtuan_chef');
       expect(AuthService.instance.currentUser?.dateOfBirth, isNotNull);
+      expect(
+        AuthService.instance.currentUser?.address,
+        '123 Nguyễn Trãi, Thanh Xuân, Hà Nội',
+      );
     },
   );
 }

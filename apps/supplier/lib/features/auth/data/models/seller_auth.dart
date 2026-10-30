@@ -16,6 +16,20 @@ class SupplierProfile {
   final String? supplierLogoUrl;
   final String? role;
   final String? memberStatus;
+  // KYB Legal & Payout Details
+  final String? merchantType;
+  final String? citizenId;
+  final String? citizenIdIssuedDate;
+  final String? idCardFrontUrl;
+  final String? idCardBackUrl;
+  final String? businessName;
+  final String? taxCode;
+  final String? businessLicenseUrl;
+  final String? bankName;
+  final String? bankAccountNumber;
+  final String? bankAccountHolder;
+  final String? rejectionReason;
+  final String? verifiedAt;
 
   SupplierProfile({
     required this.supplierId,
@@ -32,7 +46,25 @@ class SupplierProfile {
     this.supplierLogoUrl,
     this.role,
     this.memberStatus,
+    this.merchantType,
+    this.citizenId,
+    this.citizenIdIssuedDate,
+    this.idCardFrontUrl,
+    this.idCardBackUrl,
+    this.businessName,
+    this.taxCode,
+    this.businessLicenseUrl,
+    this.bankName,
+    this.bankAccountNumber,
+    this.bankAccountHolder,
+    this.rejectionReason,
+    this.verifiedAt,
   });
+
+  bool get isUnderReview => supplierStatus == 'UNDER_REVIEW';
+  bool get isPendingKyb => supplierStatus == 'PENDING' || (!isVerified && supplierStatus != 'ACTIVE' && supplierStatus != 'UNDER_REVIEW' && supplierStatus != 'REJECTED');
+  bool get isRejected => supplierStatus == 'REJECTED';
+  bool get isFullyApproved => isVerified && supplierStatus == 'ACTIVE';
 
   SupplierProfile copyWith({
     String? supplierId,
@@ -49,6 +81,19 @@ class SupplierProfile {
     String? supplierLogoUrl,
     String? role,
     String? memberStatus,
+    String? merchantType,
+    String? citizenId,
+    String? citizenIdIssuedDate,
+    String? idCardFrontUrl,
+    String? idCardBackUrl,
+    String? businessName,
+    String? taxCode,
+    String? businessLicenseUrl,
+    String? bankName,
+    String? bankAccountNumber,
+    String? bankAccountHolder,
+    String? rejectionReason,
+    String? verifiedAt,
   }) {
     return SupplierProfile(
       supplierId: supplierId ?? this.supplierId,
@@ -65,6 +110,19 @@ class SupplierProfile {
       supplierLogoUrl: supplierLogoUrl ?? this.supplierLogoUrl,
       role: role ?? this.role,
       memberStatus: memberStatus ?? this.memberStatus,
+      merchantType: merchantType ?? this.merchantType,
+      citizenId: citizenId ?? this.citizenId,
+      citizenIdIssuedDate: citizenIdIssuedDate ?? this.citizenIdIssuedDate,
+      idCardFrontUrl: idCardFrontUrl ?? this.idCardFrontUrl,
+      idCardBackUrl: idCardBackUrl ?? this.idCardBackUrl,
+      businessName: businessName ?? this.businessName,
+      taxCode: taxCode ?? this.taxCode,
+      businessLicenseUrl: businessLicenseUrl ?? this.businessLicenseUrl,
+      bankName: bankName ?? this.bankName,
+      bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
+      bankAccountHolder: bankAccountHolder ?? this.bankAccountHolder,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+      verifiedAt: verifiedAt ?? this.verifiedAt,
     );
   }
 
@@ -84,6 +142,19 @@ class SupplierProfile {
       supplierLogoUrl: json['supplierLogoUrl']?.toString() ?? json['logoUrl']?.toString(),
       role: json['role']?.toString(),
       memberStatus: json['memberStatus']?.toString(),
+      merchantType: json['merchantType']?.toString(),
+      citizenId: json['citizenId']?.toString(),
+      citizenIdIssuedDate: json['citizenIdIssuedDate']?.toString(),
+      idCardFrontUrl: json['idCardFrontUrl']?.toString(),
+      idCardBackUrl: json['idCardBackUrl']?.toString(),
+      businessName: json['businessName']?.toString(),
+      taxCode: json['taxCode']?.toString(),
+      businessLicenseUrl: json['businessLicenseUrl']?.toString(),
+      bankName: json['bankName']?.toString(),
+      bankAccountNumber: json['bankAccountNumber']?.toString(),
+      bankAccountHolder: json['bankAccountHolder']?.toString(),
+      rejectionReason: json['rejectionReason']?.toString(),
+      verifiedAt: json['verifiedAt']?.toString(),
     );
   }
 
@@ -102,6 +173,19 @@ class SupplierProfile {
     if (supplierLogoUrl != null) 'supplierLogoUrl': supplierLogoUrl,
     if (role != null) 'role': role,
     if (memberStatus != null) 'memberStatus': memberStatus,
+    if (merchantType != null) 'merchantType': merchantType,
+    if (citizenId != null) 'citizenId': citizenId,
+    if (citizenIdIssuedDate != null) 'citizenIdIssuedDate': citizenIdIssuedDate,
+    if (idCardFrontUrl != null) 'idCardFrontUrl': idCardFrontUrl,
+    if (idCardBackUrl != null) 'idCardBackUrl': idCardBackUrl,
+    if (businessName != null) 'businessName': businessName,
+    if (taxCode != null) 'taxCode': taxCode,
+    if (businessLicenseUrl != null) 'businessLicenseUrl': businessLicenseUrl,
+    if (bankName != null) 'bankName': bankName,
+    if (bankAccountNumber != null) 'bankAccountNumber': bankAccountNumber,
+    if (bankAccountHolder != null) 'bankAccountHolder': bankAccountHolder,
+    if (rejectionReason != null) 'rejectionReason': rejectionReason,
+    if (verifiedAt != null) 'verifiedAt': verifiedAt,
   };
 }
 

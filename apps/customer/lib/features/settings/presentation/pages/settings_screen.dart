@@ -8,6 +8,7 @@ import 'package:cookconnect/features/settings/presentation/pages/terms/terms_and
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cookconnect/features/auth/data/services/auth_service.dart';
+import 'package:cookconnect/features/order/presentation/pages/my_orders_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool? isLoggedIn;
@@ -98,6 +99,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       children: [
+                        _buildSettingsItem(
+                          icon: Iconsax.truck_fast,
+                          title: 'Đơn hàng của tôi',
+                          enabled: _isLoggedIn,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const MyOrdersScreen(),
+                              ),
+                            );
+                          },
+                        ),
                         _buildSettingsItem(
                           icon: Iconsax.document_text,
                           title: ApiI18n.text(UiI18nKeys.settingsManagePosts),

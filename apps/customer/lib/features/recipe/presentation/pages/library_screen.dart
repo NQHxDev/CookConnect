@@ -28,6 +28,8 @@ class _LibraryScreenState extends State<LibraryScreen>
     'Eat Clean',
     'Món chính',
     'Món nước',
+    'Ăn vặt',
+    'Món chay',
     'Đồ uống',
     'Bánh ngọt',
     '< 20 phút',
@@ -36,7 +38,7 @@ class _LibraryScreenState extends State<LibraryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -278,98 +280,6 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 
-  void _showAddCustomShoppingItemDialog() {
-    final nameCtrl = TextEditingController();
-    final amountCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final theme = Theme.of(context);
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Row(
-            children: [
-              Icon(Iconsax.bag_2, color: Colors.orange, size: 22),
-              SizedBox(width: 8),
-              Text(
-                'Thêm món cần mua',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Tên nguyên liệu / thực phẩm',
-                  hintText: 'Ví dụ: Trứng gà, Sữa chua, Rau xà lách...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFFF9FAFB),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: amountCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Số lượng / Định lượng',
-                  hintText: 'Ví dụ: 500g, 1 vỉ, 2 quả...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFFF9FAFB),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Huỷ'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () {
-                final name = nameCtrl.text.trim();
-                if (name.isEmpty) return;
-
-                final newItem = ShoppingItem(
-                  id: 'shop_custom_${DateTime.now().millisecondsSinceEpoch}',
-                  name: name,
-                  amount: amountCtrl.text.trim().isEmpty
-                      ? '1 phần'
-                      : amountCtrl.text.trim(),
-                  recipeSource: 'Tự thêm',
-                );
-
-                setState(() {
-                  _dataService.addShoppingItem(newItem);
-                });
-
-                Navigator.pop(ctx);
-              },
-              child: const Text('Thêm vào giỏ'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _openRecipeDetail(Recipe recipe) {
     RecipeDetailSheet.show(
       context,
@@ -438,11 +348,6 @@ class _LibraryScreenState extends State<LibraryScreen>
             tooltip: 'Tạo bộ sưu tập',
             onPressed: _showCreateCollectionDialog,
           ),
-          IconButton(
-            icon: const Icon(Iconsax.bag_2, color: Colors.black87),
-            tooltip: 'Thêm đồ cần mua',
-            onPressed: _showAddCustomShoppingItemDialog,
-          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
@@ -502,17 +407,6 @@ class _LibraryScreenState extends State<LibraryScreen>
                     ],
                   ),
                 ),
-                Tab(
-                  child: Row(
-                    children: [
-                      const Icon(Iconsax.shopping_cart, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Đi chợ (${_dataService.shoppingList.where((i) => !i.isCompleted).length})',
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -524,7 +418,6 @@ class _LibraryScreenState extends State<LibraryScreen>
           _buildFavoritesTab(primaryColor),
           _buildCollectionsTab(primaryColor),
           _buildHistoryAndCookedTab(primaryColor),
-          _buildShoppingListTab(primaryColor),
         ],
       ),
     );
@@ -1214,203 +1107,6 @@ class _LibraryScreenState extends State<LibraryScreen>
             ),
           );
         }),
-      ],
-    );
-  }
-
-  // ==========================================
-  // TAB 4: SHOPPING LIST (DANH SÁCH ĐI CHỢ)
-  // ==========================================
-  Widget _buildShoppingListTab(Color primaryColor) {
-    final items = _dataService.shoppingList;
-    final completedCount = items.where((i) => i.isCompleted).length;
-    final totalCount = items.length;
-
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Shopping list progress overview
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Tiến độ mua sắm thực phẩm',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  Text(
-                    '$completedCount/$totalCount món',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: totalCount == 0 ? 0 : completedCount / totalCount,
-                  minHeight: 8,
-                  backgroundColor: Colors.grey.withValues(alpha: 0.15),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    completedCount == totalCount && totalCount > 0
-                        ? Colors.green
-                        : primaryColor,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: _showAddCustomShoppingItemDialog,
-                    icon: const Icon(Iconsax.add, size: 16),
-                    label: const Text(
-                      'Thêm món',
-                      style: TextStyle(fontSize: 12.5),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primaryColor,
-                      side: BorderSide(color: primaryColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (completedCount > 0)
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _dataService.clearCompletedShoppingItems();
-                        });
-                      },
-                      icon: const Icon(
-                        Iconsax.trash,
-                        size: 16,
-                        color: Colors.red,
-                      ),
-                      label: const Text(
-                        'Xoá món đã mua',
-                        style: TextStyle(color: Colors.red, fontSize: 12.5),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        if (items.isEmpty)
-          _buildEmptyView(
-            title: 'Chưa có thực phẩm nào cần mua',
-            subtitle:
-                'Thêm nguyên liệu từ công thức món ăn hoặc bấm nút "+ Thêm món" ở trên.',
-            actionLabel: '+ Thêm món mới',
-            onAction: _showAddCustomShoppingItemDialog,
-          )
-        else
-          ...items.map((item) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: item.isCompleted
-                    ? const Color(0xFFF9FAFB)
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: item.isCompleted
-                      ? Colors.grey.withValues(alpha: 0.15)
-                      : Colors.orange.withValues(alpha: 0.2),
-                ),
-              ),
-              child: ListTile(
-                leading: Checkbox(
-                  value: item.isCompleted,
-                  activeColor: Colors.green,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  onChanged: (val) {
-                    setState(() {
-                      _dataService.toggleShoppingItem(item.id);
-                    });
-                  },
-                ),
-                title: Text(
-                  item.name,
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    decoration: item.isCompleted
-                        ? TextDecoration.lineThrough
-                        : null,
-                    color: item.isCompleted ? Colors.grey[500] : Colors.black87,
-                  ),
-                ),
-                subtitle: Text(
-                  'Nguồn: ${item.recipeSource}',
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey[500]),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        item.amount,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: primaryColor,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _dataService.removeShoppingItem(item.id);
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
       ],
     );
   }

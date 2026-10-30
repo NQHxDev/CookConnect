@@ -5,6 +5,7 @@ class UiI18nKeys {
   // Bottom Navigation Bar
   static const String navHome = 'UI.NAV.HOME';
   static const String navLibrary = 'UI.NAV.LIBRARY';
+  static const String navMarket = 'UI.NAV.MARKET';
   static const String navInbox = 'UI.NAV.INBOX';
   static const String navProfile = 'UI.NAV.PROFILE';
 

@@ -5,6 +5,8 @@ import 'package:cookconnect/features/recipe/data/models/recipe.dart';
 import 'package:cookconnect/features/recipe/data/models/video_segment.dart';
 import 'package:cookconnect/features/recipe/presentation/pages/cooking_camera_screen.dart';
 import 'package:cookconnect/features/recipe/presentation/pages/recipe_post_details_screen.dart';
+import 'package:cookconnect/features/recipe/presentation/widgets/add_cooking_step_bottom_sheet.dart';
+import 'package:cookconnect/features/recipe/presentation/widgets/add_ingredient_bottom_sheet.dart';
 
 class UploadScreen extends StatefulWidget {
   final VoidCallback? onCancel;
@@ -58,53 +60,10 @@ class _UploadScreenState extends State<UploadScreen> {
   final List<String> _difficulties = ['Dễ', 'Trung bình', 'Khó'];
 
   // Ingredients (Required)
-  final List<Ingredient> _ingredients = [
-    Ingredient(id: '1', name: 'Thịt bò hoặc sườn heo', amount: '300g'),
-    Ingredient(id: '2', name: 'Hành tím & tỏi băm nhuyễn', amount: '2 củ'),
-    Ingredient(
-      id: '3',
-      name: 'Gia vị: Nước mắm, tiêu, dầu hào',
-      amount: 'Vừa đủ',
-    ),
-  ];
+  final List<Ingredient> _ingredients = [];
 
   // Steps (Optional)
-  final List<CookingStep> _steps = [
-    const CookingStep(
-      stepNumber: 1,
-      title: 'Sơ chế nguyên liệu',
-      description:
-          'Rửa sạch nguyên liệu với nước muối loãng, cắt miếng vừa ăn và để ráo nước.',
-      tip: 'Nên dùng khăn sạch thấm khô để khi áp chảo thịt không bị bắn dầu.',
-      durationMinutes: 5,
-    ),
-    const CookingStep(
-      stepNumber: 2,
-      title: 'Ướp và nấu lửa vừa',
-      description:
-          'Ướp đều gia vị trong 10-15 phút rồi đảo đều trên chảo nóng thơm lừng.',
-      tip: 'Đảo nhanh tay để nguyên liệu giữ trọn vị ngọt tự nhiên.',
-      durationMinutes: 10,
-    ),
-  ];
-
-  // Quick suggestions for ingredients
-  final List<String> _quickIngredients = [
-    'Thịt bò',
-    'Thịt heo',
-    'Ức gà',
-    'Tôm tươi',
-    'Trứng gà',
-    'Hành tím',
-    'Tỏi băm',
-    'Hành lá',
-    'Nước mắm',
-    'Dầu ăn',
-    'Tiêu xay',
-    'Hạt nêm',
-    'Ớt tươi',
-    'Gừng tươi',
-  ];
+  final List<CookingStep> _steps = [];
 
   @override
   void initState() {
@@ -178,261 +137,60 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  void _showAddIngredientDialog({Ingredient? editItem, int? index, String? prefillName}) {
-    final nameCtrl = TextEditingController(text: editItem?.name ?? prefillName ?? '');
-    final amountCtrl = TextEditingController(text: editItem?.amount ?? '');
+  Future<void> _showAddIngredientBottomSheet({
+    Ingredient? editItem,
+    int? index,
+    String? prefillName,
+  }) async {
+    final result = await AddIngredientBottomSheet.show(
+      context,
+      editItem: editItem,
+      prefillName: prefillName,
+    );
 
-    final quickUnits = ['300g', '500g', '1kg', '2 quả', '2 củ', '1 muỗng canh', '1 thìa cafe', 'Vừa đủ'];
+    if (result != null && mounted) {
+      setState(() {
+        if (editItem != null && index != null) {
+          _ingredients[index] = result;
+        } else {
+          _ingredients.add(result);
+        }
+      });
+    }
+  }
 
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text(
-              editItem == null ? 'Thêm nguyên liệu' : 'Chỉnh sửa nguyên liệu',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    autofocus: editItem == null && prefillName == null,
-                    decoration: InputDecoration(
-                      labelText: 'Tên nguyên liệu *',
-                      hintText: 'VD: Thịt ba chỉ, Cà chua...',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: amountCtrl,
-                    autofocus: prefillName != null,
-                    decoration: InputDecoration(
-                      labelText: 'Định lượng',
-                      hintText: 'VD: 300g, 2 muỗng canh, Vừa đủ...',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Gợi ý định lượng nhanh:',
-                    style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: quickUnits.map((u) {
-                      return InkWell(
-                        onTap: () {
-                          setDialogState(() {
-                            amountCtrl.text = u;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Text(
-                            u,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Huỷ', style: TextStyle(color: Colors.grey)),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF4D30),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: () {
-                  final name = nameCtrl.text.trim();
-                  final amount = amountCtrl.text.trim();
-                  if (name.isNotEmpty) {
-                    setState(() {
-                      if (editItem != null && index != null) {
-                        _ingredients[index] = editItem.copyWith(
-                          name: name,
-                          amount: amount.isEmpty ? 'Vừa đủ' : amount,
-                        );
-                      } else {
-                        _ingredients.add(
-                          Ingredient(
-                            id: DateTime.now().millisecondsSinceEpoch.toString(),
-                            name: name,
-                            amount: amount.isEmpty ? 'Vừa đủ' : amount,
-                          ),
-                        );
-                      }
-                    });
-                    Navigator.pop(ctx);
-                  }
-                },
-                child: const Text('Lưu'),
-              ),
-            ],
+  Future<void> _showAddStepBottomSheet({
+    CookingStep? editItem,
+    int? index,
+  }) async {
+    final nextStepNumber = editItem?.stepNumber ?? (_steps.length + 1);
+    final result = await AddCookingStepBottomSheet.show(
+      context,
+      editItem: editItem,
+      stepNumber: nextStepNumber,
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        if (editItem != null && index != null) {
+          _steps[index] = result;
+        } else {
+          _steps.add(result);
+        }
+        // Normalize step numbers sequentially
+        for (int i = 0; i < _steps.length; i++) {
+          _steps[i] = CookingStep(
+            stepNumber: i + 1,
+            title: _steps[i].title,
+            description: _steps[i].description,
+            tip: _steps[i].tip,
+            durationMinutes: _steps[i].durationMinutes,
           );
-        },
-      ),
-    );
+        }
+      });
+    }
   }
 
-  void _showAddStepDialog({CookingStep? editItem, int? index}) {
-    final titleCtrl = TextEditingController(text: editItem?.title ?? '');
-    final descCtrl = TextEditingController(text: editItem?.description ?? '');
-    final tipCtrl = TextEditingController(text: editItem?.tip ?? '');
-    final durationCtrl = TextEditingController(
-      text: editItem?.durationMinutes?.toString() ?? '5',
-    );
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          editItem == null
-              ? 'Thêm bước thực hiện (Tùy chọn)'
-              : 'Chỉnh sửa bước ${editItem.stepNumber}',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleCtrl,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Tiêu đề bước *',
-                  hintText: 'VD: Phi thơm hành tỏi',
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'Chi tiết thao tác *',
-                  hintText: 'Mô tả cụ thể cách thao tác, nhiệt độ, độ chín...',
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: tipCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Mẹo / Bí quyết đầu bếp (Tùy chọn)',
-                  hintText: 'VD: Đảo lửa lớn để không ra nước',
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: durationCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Thời gian ước tính (phút, tùy chọn)',
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Huỷ', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF4D30),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () {
-              final title = titleCtrl.text.trim();
-              final desc = descCtrl.text.trim();
-              if (title.isNotEmpty && desc.isNotEmpty) {
-                final dur = int.tryParse(durationCtrl.text.trim()) ?? 5;
-                final tip = tipCtrl.text.trim().isEmpty ? null : tipCtrl.text.trim();
-                setState(() {
-                  if (editItem != null && index != null) {
-                    _steps[index] = CookingStep(
-                      stepNumber: editItem.stepNumber,
-                      title: title,
-                      description: desc,
-                      tip: tip,
-                      durationMinutes: dur,
-                    );
-                  } else {
-                    _steps.add(
-                      CookingStep(
-                        stepNumber: _steps.length + 1,
-                        title: title,
-                        description: desc,
-                        tip: tip,
-                        durationMinutes: dur,
-                      ),
-                    );
-                  }
-                });
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Lưu'),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _onNextStep() {
     // 1. Validate video
@@ -1001,35 +759,37 @@ class _UploadScreenState extends State<UploadScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Text(
-                    'Nguyên liệu',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
+              Expanded(
+                child: Row(
+                  children: [
+                    const Text(
+                      'Nguyên liệu',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFECE8),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${_ingredients.length} mục',
-                      style: const TextStyle(
-                        color: Color(0xFFFF4D30),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFECE8),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_ingredients.length} mục',
+                        style: const TextStyle(
+                          color: Color(0xFFFF4D30),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               ElevatedButton.icon(
-                onPressed: () => _showAddIngredientDialog(),
+                onPressed: () => _showAddIngredientBottomSheet(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF4D30),
                   foregroundColor: Colors.white,
@@ -1040,54 +800,11 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Thêm nguyên liệu', style: TextStyle(fontSize: 12)),
+                label: const Text('Thêm', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-
-          // Quick ingredient chips
-          const Text(
-            'Chọn nhanh nguyên liệu phổ biến:',
-            style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _quickIngredients.map((item) {
-                final isAdded = _ingredients.any((i) => i.name.toLowerCase().contains(item.toLowerCase()));
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    avatar: Icon(
-                      isAdded ? Icons.check : Icons.add,
-                      size: 14,
-                      color: isAdded ? const Color(0xFFFF4D30) : Colors.black87,
-                    ),
-                    label: Text(
-                      item,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isAdded ? const Color(0xFFFF4D30) : Colors.black87,
-                        fontWeight: isAdded ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    backgroundColor: isAdded ? const Color(0xFFFFECE8) : Colors.grey.shade100,
-                    side: BorderSide.none,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    onPressed: () {
-                      _showAddIngredientDialog(prefillName: item);
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           const Divider(height: 1),
           const SizedBox(height: 10),
 
@@ -1109,7 +826,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Nhấn "+ Thêm nguyên liệu" hoặc chọn gợi ý bên trên để bổ sung',
+                      'Nhấn "+ Thêm nguyên liệu" để tìm kiếm và bổ sung',
                       style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                     ),
                   ],
@@ -1141,7 +858,11 @@ class _UploadScreenState extends State<UploadScreen> {
                   decoration: BoxDecoration(
                     color: Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(
+                      color: item.productId != null
+                          ? const Color(0xFFFFD0C7)
+                          : Colors.grey.shade200,
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -1151,13 +872,76 @@ class _UploadScreenState extends State<UploadScreen> {
                         color: Colors.grey.shade400,
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          item.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                      if (item.imageUrl != null && item.imageUrl!.isNotEmpty) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            color: Colors.grey.shade200,
+                            child: Image.network(
+                              item.imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Icon(
+                                Iconsax.box,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    item.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                if (item.productId != null) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 1.5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFECE8),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'NCC',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFFF4D30),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (item.price != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '${item.price!.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')} đ',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFFFF4D30),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       Container(
@@ -1185,7 +969,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           size: 16,
                           color: Colors.grey,
                         ),
-                        onPressed: () => _showAddIngredientDialog(
+                        onPressed: () => _showAddIngredientBottomSheet(
                           editItem: item,
                           index: idx,
                         ),
@@ -1238,13 +1022,17 @@ class _UploadScreenState extends State<UploadScreen> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: _steps.isNotEmpty
+                            ? const Color(0xFFFFECE8)
+                            : Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        'Tùy chọn',
+                        _steps.isNotEmpty ? '${_steps.length} bước' : 'Tùy chọn',
                         style: TextStyle(
-                          color: Colors.blue.shade700,
+                          color: _steps.isNotEmpty
+                              ? const Color(0xFFFF4D30)
+                              : Colors.blue.shade700,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1253,11 +1041,12 @@ class _UploadScreenState extends State<UploadScreen> {
                   ],
                 ),
               ),
-              OutlinedButton.icon(
-                onPressed: () => _showAddStepDialog(),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFFF4D30),
-                  side: const BorderSide(color: Color(0xFFFF4D30)),
+              ElevatedButton.icon(
+                onPressed: () => _showAddStepBottomSheet(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF4D30),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -1278,27 +1067,38 @@ class _UploadScreenState extends State<UploadScreen> {
           if (_steps.isEmpty)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200, style: BorderStyle.solid),
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade200),
               ),
               child: Column(
                 children: [
-                  Icon(Iconsax.note_favorite, size: 30, color: Colors.grey.shade400),
-                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFECE8),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Iconsax.document_text_1,
+                      size: 24,
+                      color: Color(0xFFFF4D30),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Text(
                     'Chưa có bước thực hiện nào (Không bắt buộc)',
                     style: TextStyle(
-                      color: Colors.grey.shade700,
+                      color: Colors.grey.shade800,
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Bạn có thể ấn "Tiếp theo" để hoàn tất bài đăng ngay',
+                    'Thêm từng bước giúp bài viết sinh động và công thức dễ nấu hơn',
                     style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                   ),
                 ],
@@ -1309,10 +1109,10 @@ class _UploadScreenState extends State<UploadScreen> {
               final step = _steps[idx];
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: Column(
@@ -1320,11 +1120,17 @@ class _UploadScreenState extends State<UploadScreen> {
                   children: [
                     Row(
                       children: [
-                        CircleAvatar(
-                          radius: 12,
-                          backgroundColor: const Color(0xFFFF4D30),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF4D30),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           child: Text(
-                            '${idx + 1}',
+                            'Bước ${idx + 1}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -1338,73 +1144,132 @@ class _UploadScreenState extends State<UploadScreen> {
                             step.title,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                              fontSize: 13.5,
+                              color: Color(0xFF1E293B),
                             ),
                           ),
                         ),
                         if (step.durationMinutes != null)
-                          Text(
-                            '~${step.durationMinutes}p',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 11,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Iconsax.clock,
+                                  size: 12,
+                                  color: Color(0xFFFF4D30),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '~${step.durationMinutes}p',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade800,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         IconButton(
                           icon: const Icon(
-                            Icons.edit,
+                            Iconsax.edit_2,
                             size: 16,
                             color: Colors.grey,
                           ),
-                          onPressed: () =>
-                              _showAddStepDialog(editItem: step, index: idx),
+                          splashRadius: 18,
+                          onPressed: () => _showAddStepBottomSheet(
+                            editItem: step,
+                            index: idx,
+                          ),
                         ),
                         IconButton(
                           icon: const Icon(
-                            Icons.delete_outline,
+                            Iconsax.trash,
                             size: 16,
                             color: Colors.redAccent,
                           ),
+                          splashRadius: 18,
                           onPressed: () {
-                            setState(() => _steps.removeAt(idx));
+                            setState(() {
+                              _steps.removeAt(idx);
+                              for (int i = 0; i < _steps.length; i++) {
+                                _steps[i] = CookingStep(
+                                  stepNumber: i + 1,
+                                  title: _steps[i].title,
+                                  description: _steps[i].description,
+                                  tip: _steps[i].tip,
+                                  durationMinutes: _steps[i].durationMinutes,
+                                );
+                              }
+                            });
                           },
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       step.description,
                       style: TextStyle(
                         color: Colors.grey.shade800,
-                        fontSize: 12,
+                        fontSize: 12.5,
                         height: 1.4,
                       ),
                     ),
                     if (step.tip != null && step.tip!.isNotEmpty) ...[
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          horizontal: 10,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.amber.shade50,
-                          borderRadius: BorderRadius.circular(6),
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
                         ),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
-                              Icons.lightbulb_outline,
-                              size: 14,
-                              color: Colors.amber,
+                            const Padding(
+                              padding: EdgeInsets.only(top: 1),
+                              child: Icon(
+                                Iconsax.lamp_charge,
+                                size: 14,
+                                color: Color(0xFFD97706),
+                              ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
                             Expanded(
-                              child: Text(
-                                'Tip: ${step.tip}',
-                                style: TextStyle(
-                                  color: Colors.amber.shade900,
-                                  fontSize: 11,
+                              child: RichText(
+                                text: TextSpan(
+                                  children: [
+                                    const TextSpan(
+                                      text: 'Mẹo: ',
+                                      style: TextStyle(
+                                        color: Color(0xFFB45309),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11.5,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: step.tip!,
+                                      style: TextStyle(
+                                        color: Colors.amber.shade900,
+                                        fontSize: 11.5,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

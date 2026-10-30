@@ -160,4 +160,36 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'ProfileScreen pull-to-refresh: scroll notifications during layout do not throw Build scheduled during frame',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ProfileScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final profileState = tester.state<ProfileScreenState>(find.byType(ProfileScreen));
+
+      // Drag downwards slightly to introduce a pullOffset
+      final scrollableFinder = find.byType(Scrollable).first;
+      await tester.drag(scrollableFinder, const Offset(0, 30));
+      await tester.pump();
+
+      // Now scroll upwards/downwards quickly past 5px offset
+      await tester.drag(scrollableFinder, const Offset(0, -100));
+      await tester.pumpAndSettle();
+
+      // No exception thrown and state properly reset
+      expect(profileState.isRefreshing, isFalse);
+      expect(profileState.pullOffset, equals(0.0));
+    },
+  );
 }

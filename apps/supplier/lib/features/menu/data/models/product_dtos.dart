@@ -1,6 +1,9 @@
 import 'product_category.dart';
 import 'product_category_type.dart';
 import 'seller_product_item.dart';
+import 'package:cook_connect_seller/features/auth/data/services/seller_auth_service.dart';
+export 'product_category_type.dart';
+export 'product_enums.dart';
 
 /// Request DTO for single product packaging variant matching Swagger schema `CreateProductVariantDto`.
 class CreateProductVariantDto {
@@ -81,6 +84,9 @@ class CreateProductVariantDto {
 
 /// Request DTO for registering a raw ingredient / supply product matching Swagger `POST /api/v1/products`.
 class CreateProductDto {
+  /// Unique supplier store UUID owning this product (required by Swagger)
+  final String supplierId;
+
   /// Standard WHO nutrition group code (1 of 8 groups enum)
   final String whoCategoryCode;
   final String productName;
@@ -92,6 +98,7 @@ class CreateProductDto {
   final List<CreateProductVariantDto> variants;
 
   const CreateProductDto({
+    required this.supplierId,
     required this.whoCategoryCode,
     required this.productName,
     required this.description,
@@ -104,6 +111,7 @@ class CreateProductDto {
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{
+      'supplierId': supplierId,
       'whoCategoryCode': whoCategoryCode,
       'productName': productName,
       'description': description,
@@ -127,6 +135,7 @@ class CreateProductDto {
   }
 
   CreateProductDto copyWith({
+    String? supplierId,
     String? whoCategoryCode,
     String? productName,
     String? description,
@@ -137,6 +146,7 @@ class CreateProductDto {
     List<CreateProductVariantDto>? variants,
   }) {
     return CreateProductDto(
+      supplierId: supplierId ?? this.supplierId,
       whoCategoryCode: whoCategoryCode ?? this.whoCategoryCode,
       productName: productName ?? this.productName,
       description: description ?? this.description,
@@ -153,6 +163,7 @@ class CreateProductDto {
     final rawImages = json['images'] as List<dynamic>? ?? [];
 
     return CreateProductDto(
+      supplierId: json['supplierId']?.toString() ?? '',
       whoCategoryCode: json['whoCategoryCode'] is Map
           ? (json['whoCategoryCode']['code']?.toString() ?? 'STAPLES')
           : (json['whoCategoryCode']?.toString() ?? 'STAPLES'),
@@ -167,7 +178,125 @@ class CreateProductDto {
           .toList(),
     );
   }
+
+  /// Converts UI SellerProductItem to Swagger CreateProductDto
+  factory CreateProductDto.fromSellerProductItem(
+    SellerProductItem item, {
+    String? supplierId,
+  }) {
+    final List<CreateProductVariantDto> variantDtos;
+    if (item.skus.isNotEmpty) {
+      variantDtos = item.skus.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final s = entry.value;
+        return CreateProductVariantDto(
+          sku: s.sku.isNotEmpty ? s.sku : 'SKU-${item.id}-${idx + 1}',
+          variantName: s.name.isNotEmpty ? s.name : item.name,
+          unit: s.unit.isNotEmpty ? s.unit : item.unit,
+          packSize: s.packSize ?? item.packSize,
+          price: s.price,
+          originalPrice: s.originalPrice,
+          stockQuantity: s.stock,
+          lowStockThreshold: s.lowStockThreshold,
+          isDefault: s.isDefault || idx == 0,
+        );
+      }).toList();
+    } else {
+      variantDtos = [
+        CreateProductVariantDto(
+          sku: item.sku.isNotEmpty ? item.sku : 'SKU-${item.id}',
+          variantName: item.name,
+          unit: item.unit,
+          packSize: item.packSize,
+          price: item.price,
+          originalPrice: item.originalPrice,
+          stockQuantity: item.stock,
+          isDefault: true,
+        ),
+      ];
+    }
+
+    final resolvedSupplierId = (supplierId != null && supplierId.isNotEmpty)
+        ? supplierId
+        : ((item.supplierId != null && item.supplierId!.isNotEmpty)
+            ? item.supplierId!
+            : (SellerAuthService.instance.supplierProfile?.supplierId ??
+               SellerAuthService.instance.currentUser?.storeId ??
+               ''));
+
+    return CreateProductDto(
+      supplierId: resolvedSupplierId,
+      whoCategoryCode: item.effectiveWhoCategoryCode,
+      productName: item.name,
+      description: item.description ?? '',
+      origin: item.origin,
+      storageCondition: item.storageCondition,
+      shelfLifeDays: item.shelfLifeDays,
+      images: item.images,
+      variants: variantDtos,
+    );
+  }
 }
+
+/// Request DTO for updating product attributes matching Swagger `PATCH /api/v1/products/{productId}`.
+class UpdateProductDto {
+  final String? whoCategoryCode;
+  final String? productName;
+  final String? description;
+  final String? origin;
+  final String? storageCondition;
+  final int? shelfLifeDays;
+  final List<String>? images;
+
+  const UpdateProductDto({
+    this.whoCategoryCode,
+    this.productName,
+    this.description,
+    this.origin,
+    this.storageCondition,
+    this.shelfLifeDays,
+    this.images,
+  });
+
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{};
+    if (whoCategoryCode != null && whoCategoryCode!.trim().isNotEmpty) {
+      map['whoCategoryCode'] = whoCategoryCode!.trim();
+    }
+    if (productName != null && productName!.trim().isNotEmpty) {
+      map['productName'] = productName!.trim();
+    }
+    if (description != null && description!.trim().isNotEmpty) {
+      map['description'] = description!.trim();
+    }
+    if (origin != null && origin!.trim().isNotEmpty) {
+      map['origin'] = origin!.trim();
+    }
+    if (storageCondition != null && storageCondition!.trim().isNotEmpty) {
+      map['storageCondition'] = storageCondition!.trim();
+    }
+    if (shelfLifeDays != null && shelfLifeDays! > 0) {
+      map['shelfLifeDays'] = shelfLifeDays;
+    }
+    if (images != null) {
+      map['images'] = images;
+    }
+    return map;
+  }
+
+  factory UpdateProductDto.fromSellerProductItem(SellerProductItem item) {
+    return UpdateProductDto(
+      whoCategoryCode: item.effectiveWhoCategoryCode,
+      productName: item.name,
+      description: item.description,
+      origin: item.origin,
+      storageCondition: item.storageCondition,
+      shelfLifeDays: item.shelfLifeDays,
+      images: item.images,
+    );
+  }
+}
+
 
 /// Response DTO for a variant returned by backend `ProductVariantDto`.
 class ProductVariantDto {
@@ -220,7 +349,9 @@ class ProductVariantDto {
       reservedQuantity: (json['reservedQuantity'] as num?)?.toInt() ?? 0,
       lowStockThreshold: (json['lowStockThreshold'] as num?)?.toInt() ?? 10,
       isDefault: json['isDefault'] as bool? ?? false,
-      status: json['status']?.toString() ?? 'AVAILABLE',
+      status: json['status'] is Map
+          ? (json['status']['code']?.toString() ?? json['status']['name']?.toString() ?? 'AVAILABLE')
+          : (json['status']?.toString() ?? 'AVAILABLE'),
     );
   }
 
@@ -337,20 +468,28 @@ class ProductItemDto {
     final primaryUnit = primarySku?.unit ?? 'kg';
 
     ProductCategoryType catType;
-    if (moderationStatus.toUpperCase() == 'PENDING_APPROVAL') {
+    final modUpper = moderationStatus.toUpperCase();
+    final statusUpper = status.toUpperCase();
+
+    if (modUpper == 'PENDING_APPROVAL' || modUpper == 'EDIT_PENDING_APPROVAL') {
       catType = ProductCategoryType.underReview;
-    } else if (moderationStatus.toUpperCase() == 'REJECTED') {
+    } else if (modUpper == 'REJECTED') {
       catType = ProductCategoryType.failed;
-    } else if (status.toUpperCase() == 'DRAFT') {
+    } else if (modUpper == 'SUSPENDED') {
+      catType = ProductCategoryType.frozen;
+    } else if (statusUpper == 'DRAFT') {
       catType = ProductCategoryType.draft;
-    } else if (status.toUpperCase() == 'INACTIVE') {
+    } else if (statusUpper == 'INACTIVE') {
       catType = ProductCategoryType.disabled;
+    } else if (totalStock <= (primarySku?.lowStockThreshold ?? 5)) {
+      catType = ProductCategoryType.lowStock;
     } else {
       catType = ProductCategoryType.onShelf;
     }
 
     return SellerProductItem(
       id: productId,
+      supplierId: supplierId,
       name: productName,
       sku: primarySku?.sku ?? 'SKU-$productId',
       price: primaryPrice,

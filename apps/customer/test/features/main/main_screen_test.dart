@@ -22,7 +22,7 @@ void main() {
     // Initial Vietnamese labels on navigation items
     expect(find.widgetWithText(InkWell, 'Trang chủ'), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Thư viện'), findsOneWidget);
-    expect(find.widgetWithText(InkWell, 'Hộp thư'), findsOneWidget);
+    expect(find.widgetWithText(InkWell, 'Đi chợ'), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Cá nhân'), findsOneWidget);
   });
 
@@ -35,32 +35,32 @@ void main() {
 
     expect(find.widgetWithText(InkWell, 'Trang chủ'), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Thư viện'), findsOneWidget);
-    expect(find.widgetWithText(InkWell, 'Hộp thư'), findsOneWidget);
+    expect(find.widgetWithText(InkWell, 'Đi chợ'), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Cá nhân'), findsOneWidget);
 
     // Switch language to English
     ApiI18n.currentLanguage = ApiI18n.en;
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Verify English labels are displayed on nav items
     expect(find.widgetWithText(InkWell, 'Home'), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Library'), findsOneWidget);
-    expect(find.widgetWithText(InkWell, 'Inbox'), findsOneWidget);
+    expect(find.widgetWithText(InkWell, 'Market'), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Profile'), findsOneWidget);
 
     // Vietnamese labels should no longer be present on nav items
     expect(find.widgetWithText(InkWell, 'Trang chủ'), findsNothing);
     expect(find.widgetWithText(InkWell, 'Thư viện'), findsNothing);
-    expect(find.widgetWithText(InkWell, 'Hộp thư'), findsNothing);
+    expect(find.widgetWithText(InkWell, 'Đi chợ'), findsNothing);
     expect(find.widgetWithText(InkWell, 'Cá nhân'), findsNothing);
 
     // Switch back to Vietnamese
     ApiI18n.currentLanguage = ApiI18n.vi;
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.widgetWithText(InkWell, 'Trang chủ'), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Thư viện'), findsOneWidget);
-    expect(find.widgetWithText(InkWell, 'Hộp thư'), findsOneWidget);
+    expect(find.widgetWithText(InkWell, 'Đi chợ'), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Cá nhân'), findsOneWidget);
   });
 
@@ -70,26 +70,27 @@ void main() {
         home: MainScreen(),
       ),
     );
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Tap on Library tab (index 1)
     await tester.tap(find.widgetWithText(InkWell, 'Thư viện'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Change language to English
     ApiI18n.currentLanguage = ApiI18n.en;
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Library tab in English should still be present
     expect(find.widgetWithText(InkWell, 'Library'), findsOneWidget);
 
-    // Tap on Inbox tab (index 3)
-    await tester.tap(find.widgetWithText(InkWell, 'Inbox'));
-    await tester.pumpAndSettle();
+    // Tap on Market tab (index 3)
+    await tester.tap(find.widgetWithText(InkWell, 'Market'));
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Change language back to Vietnamese
     ApiI18n.currentLanguage = ApiI18n.vi;
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.widgetWithText(InkWell, 'Hộp thư'), findsOneWidget);
+    expect(find.widgetWithText(InkWell, 'Đi chợ'), findsOneWidget);
   });
 }

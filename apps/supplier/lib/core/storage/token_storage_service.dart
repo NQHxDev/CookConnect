@@ -37,12 +37,8 @@ class AuthTokens {
     }
 
     // 2. Check local duration
-    if (expiresIn > 0) {
-      final expiryTime = createdAt.add(Duration(seconds: expiresIn));
-      return DateTime.now().add(buffer).isAfter(expiryTime);
-    }
-
-    return false;
+    final expiryTime = createdAt.add(Duration(seconds: expiresIn));
+    return DateTime.now().add(buffer).isAfter(expiryTime);
   }
 
   /// Checks whether the refresh token is expired (if JWT formatted).
@@ -182,6 +178,9 @@ class SecureTokenStorageService implements TokenStorageService {
 
   @override
   Future<void> clearAuth() async {
+    try {
+      await _storage.deleteAll();
+    } catch (_) {}
     try {
       await _storage.delete(key: AppConstants.keyAccessToken);
       await _storage.delete(key: AppConstants.keyRefreshToken);

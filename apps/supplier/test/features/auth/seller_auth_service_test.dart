@@ -209,8 +209,8 @@ void main() {
   test('ApiConfig register paths point to unified /api/v1/auth/register', () {
     expect(ApiConfig.registerPath, equals('/api/v1/auth/register'));
     expect(ApiConfig.registerSupplierPath, equals('/api/v1/auth/register'));
-    expect(ApiConfig.registerUrl, equals('http://192.168.1.162:8080/api/v1/auth/register'));
-    expect(ApiConfig.registerSupplierUrl, equals('http://192.168.1.162:8080/api/v1/auth/register'));
+    expect(ApiConfig.registerUrl, equals('${ApiConfig.baseUrl}/api/v1/auth/register'));
+    expect(ApiConfig.registerSupplierUrl, equals('${ApiConfig.baseUrl}/api/v1/auth/register'));
   });
 
   test('Initial state is not logged in', () {

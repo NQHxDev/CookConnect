@@ -5,6 +5,7 @@ final Map<String, String> uiMessagesVi = {
   // Bottom Navigation Bar
   UiI18nKeys.navHome: 'Trang chủ',
   UiI18nKeys.navLibrary: 'Thư viện',
+  UiI18nKeys.navMarket: 'Đi chợ',
   UiI18nKeys.navInbox: 'Hộp thư',
   UiI18nKeys.navProfile: 'Cá nhân',
 

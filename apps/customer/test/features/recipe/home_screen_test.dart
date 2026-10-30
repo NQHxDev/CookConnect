@@ -42,7 +42,7 @@ void main() {
 
     // Change language to English
     ApiI18n.currentLanguage = ApiI18n.en;
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     // Verify English tabs
     expect(find.text('Friends'), findsOneWidget);
@@ -55,7 +55,7 @@ void main() {
 
     // Change back to Vietnamese
     ApiI18n.currentLanguage = ApiI18n.vi;
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.text('Bạn bè'), findsOneWidget);
     expect(find.text('Đã follow'), findsOneWidget);
@@ -74,10 +74,10 @@ void main() {
 
     // Tap on 'Bạn bè' tab
     await tester.tap(find.text('Bạn bè'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     // Tap on 'Đã follow' tab
     await tester.tap(find.text('Đã follow'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
   });
 }
